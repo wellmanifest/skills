@@ -11,3 +11,18 @@ PASS git diff --check
 
 No runtime dependency, secret access, grant issuance or external effect was
 introduced. Publication remains subject to protected exact-head validation.
+
+2026-08-20T10:01:00Z protected publication
+
+Validator run: 32356971040
+Approved head: 1485460322fee45f8d083e488fd5b7c25f697823
+Approval review: 4981485845
+Merge commit: a047e6ca5b10e914ab087c2a6913e658957a5d2a
+Validator actor: ifuri-validator-agent[bot]
+
+2026-08-20T10:44:25Z adopter read-back
+
+PASS: subactor/skills-agent adopted the execution schema, canonical errors,
+six stable operations and immutable catalog under exact digests.
+PASS: 186 adopter tests, hosted checks and exact-head Validator acceptance.
+PASS: subactor/skills-agent issue #18 closed after PRs #37, #38 and #39.
