@@ -1,0 +1,69 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-002",
+  "summary": "Run skills conformance in hosted CI",
+  "workstream": "infrastructure",
+  "classification": {
+    "kind": "FEATURE",
+    "priority": "P1",
+    "origin": "requested"
+  },
+  "allowedPaths": [
+    "project/ticket-002/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    ".github/workflows/skills-conformance.yml"
+  ],
+  "forbiddenPaths": ["project/ticket-*/user-*.md"],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "7ffffc3e8845004e6687221bfeccb825855de37a",
+    "targetBranch": "main",
+    "outcome": "Every pull request and main update runs the dependency-free Skill DSL conformance as the stable hosted context standards / skills conformance.",
+    "nonGoals": [
+      "Change the Skill DSL or conformance semantics",
+      "Add a runtime dependency",
+      "Grant Validator or merge authority",
+      "Modify another repository's branch protection"
+    ],
+    "complexity": "XS",
+    "estimatedMinutes": 10,
+    "budgets": {
+      "maxImplementationFiles": 1,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Add one least-privilege workflow that invokes the existing dependency-free conformance entrypoint; keep semantic ownership in standard/conformance.py.",
+      "components": [
+        {
+          "name": "hosted-conformance",
+          "paths": [".github/workflows/skills-conformance.yml"]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {"impact": "none", "states": [], "evidence": []},
+      "rollback": "Remove only the hosted workflow; local conformance remains available."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-04",
+        "commands": ["python3 standard/conformance.py --all", "./project/governance-check.sh --actor agent"],
+        "evidence": "project/ticket-002/ai-codex-logs.txt"
+      },
+      {
+        "criterion": "AC-05",
+        "commands": ["git diff --check"],
+        "evidence": "project/ticket-002/ai-codex-logs.txt"
+      }
+    ]
+  }
+}
