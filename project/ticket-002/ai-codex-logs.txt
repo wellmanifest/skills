@@ -1,0 +1,8 @@
+2026-08-20T08:48:00Z python3 standard/conformance.py --all
+PASS: 9 valid documents, 9 adversarial cases
+
+2026-08-20T08:48:00Z ./project/governance-check.sh --actor agent
+GOV-PASS: passed (0 errors, 0 warnings)
+
+2026-08-20T08:48:00Z workflow structure and git diff --check
+PASS
