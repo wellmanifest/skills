@@ -37,6 +37,10 @@ secret and ambiguous changes need explicit non-automatic routes.
 - Documented composition and the adoption contract for `subactor/*-agent`.
 - Removed self-referential source coordinates found during the real adopter
   pilot: catalogs pin definitions and adopter profiles pin catalogs.
+- Independent Validator run `32349993900` approved exact head `ce408c4e...` and
+  merged PR `#1` as `dae32358...`.
+- `subactor/skills-agent` adopted the merged revision in commit `cfc0080...`
+  with a validated `SKILL.md` plus adjacent `skill.json` registry gate.
 
 ## Blockers
 

@@ -2,8 +2,8 @@
 
 - **ID**: ticket-001
 - **Owner**: unresolved:human
-- **Status**: IN_PROGRESS
-- **Workflow state**: PUBLICATION
+- **Status**: DONE
+- **Workflow state**: DONE
 - **Created**: 2026-08-20
 
 ## Goal and scope
@@ -49,6 +49,12 @@ does not authorize direct merge, secret access or irreversible remediation.
 The local governed seed transaction created
 `5f695003be1b42f932e82a73716bda99fbda94a5`. Standard implementation begins
 after this SHA and bounded delivery uses it as the exact accepted base.
+
+## Publication
+
+Validator run `32349993900` approved exact head
+`ce408c4e95b675e59d4d7b2dea6f58270243f5b4`. The Validator GitHub App merged
+PR `#1` as `dae32358a6610c3d942ec8f1a68f28a7e6f889b5` on 2026-08-20.
 
 ## Participants
 

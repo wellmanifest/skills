@@ -10,3 +10,5 @@
   runtime adoption guidance.
 - Corrected immutable provenance to avoid impossible self-referential commit
   hashes while preserving external catalog and profile pinning.
+- Recorded trusted exact-head review, protected merge and the first Subactor
+  adopter as terminal publication evidence.

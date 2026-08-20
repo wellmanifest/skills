@@ -15,3 +15,13 @@ git diff --check: PASS
 2026-08-20T08:33:00Z adopter pilot design review
 PASS: removed impossible self-referential commit/digest fields; provenance is
 catalog-entry -> definition and adopter-profile -> catalog.
+
+2026-08-20T08:43:25Z protected publication
+Validator run: 32349993900
+Approved head: ce408c4e95b675e59d4d7b2dea6f58270243f5b4
+Merge commit: dae32358a6610c3d942ec8f1a68f28a7e6f889b5
+Validator actor: ifuri-validator-agent[bot]
+
+2026-08-20T08:45:00Z adopter publication
+subactor/skills-agent commit: cfc008079cc2856e49b5952de85c2465fdb90a64
+Local adopter tests: 161 passed
