@@ -6,3 +6,5 @@
 - No human participant identity or content was generated.
 - Bound the one-file hosted conformance scope to exact base `7ffffc3...`.
 - Added and locally validated the stable hosted semantic check.
+- Recorded trusted exact-head review, protected merge and enforcement by the
+  Validator Direct PR registry.

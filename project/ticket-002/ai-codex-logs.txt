@@ -6,3 +6,13 @@ GOV-PASS: passed (0 errors, 0 warnings)
 
 2026-08-20T08:48:00Z workflow structure and git diff --check
 PASS
+
+2026-08-20T08:50:50Z protected publication
+Validator run: 32350666557
+Approved head: 325c1d8eb331213e0a268dfc971e2095f4fa247c
+Merge commit: b1650817e77d05e06f88e4fbae98845884fb50b8
+Validator actor: ifuri-validator-agent[bot]
+
+2026-08-20T08:52:00Z future enforcement
+subactor/validator-agent registry commit: 5cba8e6fb2bfd103a666349959107e539bf4769f
+Required checks: governance / remote lifecycle, standards / skills conformance

@@ -2,8 +2,8 @@
 
 - **ID**: ticket-002
 - **Owner**: unresolved:human
-- **Status**: IN_PROGRESS
-- **Workflow state**: PUBLICATION
+- **Status**: DONE
+- **Workflow state**: DONE
 - **Created**: 2026-08-20
 
 ## Goal and scope
@@ -33,3 +33,9 @@ permissions.
 
 - Human participant: unresolved; no user-* file was created by this script.
 - Agent participant: [ai-codex.md](ai-codex.md)
+
+## Publication
+
+Validator run `32350666557` approved exact head
+`325c1d8eb331213e0a268dfc971e2095f4fa247c`. The Validator GitHub App merged
+PR `#2` as `b1650817e77d05e06f88e4fbae98845884fb50b8` on 2026-08-20.

@@ -28,6 +28,10 @@ before Validator policy can require semantic conformance.
   `actions/checkout` and the existing dependency-free conformance script.
 - Passed 9 positive, 9 adversarial, governance, diff and workflow structure
   checks locally.
+- Independent Validator run `32350666557` approved exact head `325c1d8...` and
+  merged PR `#2` as `b165081...`.
+- Validator registry revision `5cba8e6...` now requires both governance and
+  `standards / skills conformance` for future standard PRs.
 
 ## Blockers
 
