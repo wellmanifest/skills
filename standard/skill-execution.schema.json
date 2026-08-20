@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wellmanifest.dev/schemas/skill-execution/v1",
+  "title": "Wellmanifest governed skill execution handoffs v1",
+  "oneOf": [
+    {"$ref": "#/$defs/plan"},
+    {"$ref": "#/$defs/grantBinding"},
+    {"$ref": "#/$defs/terminalReceipt"},
+    {"$ref": "#/$defs/executionError"}
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*$",
+      "maxLength": 160
+    },
+    "operationId": {
+      "enum": [
+        "repository:bootstrap",
+        "repository:register-mirror",
+        "repository:profile-validate",
+        "repository:profile-apply",
+        "repository:repair",
+        "repository:update"
+      ]
+    },
+    "skillId": {
+      "type": "string",
+      "pattern": "^skill\\.[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*\\.v[1-9][0-9]*$",
+      "maxLength": 160
+    },
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "maxLength": 200
+    },
+    "organization": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+$",
+      "maxLength": 100
+    },
+    "diagnosticCode": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)*$",
+      "maxLength": 80
+    },
+    "reference": {
+      "type": "string",
+      "pattern": "^(?:agent|artifact|diagit|evidence|error|grant|policy|profile|receipt)://[A-Za-z0-9._:/-]+$",
+      "maxLength": 320
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision", "path", "sha256"],
+      "properties": {
+        "repository": {"$ref": "#/$defs/repository"},
+        "revision": {"$ref": "#/$defs/commit"},
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$",
+          "maxLength": 300
+        },
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization", "repository", "visibility", "baseBranch", "baseSha", "desiredStateDigest"],
+      "properties": {
+        "organization": {"$ref": "#/$defs/organization"},
+        "repository": {"$ref": "#/$defs/repository"},
+        "visibility": {"enum": ["private", "internal", "public"]},
+        "baseBranch": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._/-]+$",
+          "maxLength": 160
+        },
+        "baseSha": {"oneOf": [{"$ref": "#/$defs/commit"}, {"type": "null"}]},
+        "desiredStateDigest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registry", "diagnosticId", "code", "errorClass", "fingerprint", "findingDigest"],
+      "properties": {
+        "registry": {"$ref": "#/$defs/artifactRef"},
+        "diagnosticId": {
+          "type": "string",
+          "pattern": "^DIAGIT-[A-Z0-9]+-[0-9]{3}$",
+          "maxLength": 80
+        },
+        "code": {"$ref": "#/$defs/diagnosticCode"},
+        "errorClass": {
+          "enum": ["availability", "configuration", "integrity", "policy", "security", "state", "unknown"]
+        },
+        "fingerprint": {"$ref": "#/$defs/sha256"},
+        "findingDigest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalogDigest", "skillDigest", "policyDigest", "priorityProfileDigest"],
+      "properties": {
+        "catalogDigest": {"$ref": "#/$defs/sha256"},
+        "skillDigest": {"$ref": "#/$defs/sha256"},
+        "policyDigest": {"$ref": "#/$defs/sha256"},
+        "priorityProfileDigest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "maxChangedFiles", "validationChecks", "rollbackProfileRef"],
+      "properties": {
+        "kind": {"enum": ["none", "repository-create", "mirror-register", "profile-apply", "pull-request"]},
+        "maxChangedFiles": {"type": "integer", "minimum": 0, "maximum": 100},
+        "validationChecks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "rollbackProfileRef": {"$ref": "#/$defs/reference"}
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema", "schema", "planId", "correlationId", "operationId", "skillId",
+        "executionMode", "target", "finding", "bindings", "effect", "idempotencyKey",
+        "requiredGrantBindings", "planDigest", "llmAuthority"
+      ],
+      "properties": {
+        "$schema": {"const": "https://wellmanifest.dev/schemas/skill-execution/v1"},
+        "schema": {"const": "wellmanifest.skill-execution-plan/v1"},
+        "planId": {"$ref": "#/$defs/identifier"},
+        "correlationId": {"$ref": "#/$defs/identifier"},
+        "operationId": {"$ref": "#/$defs/operationId"},
+        "skillId": {"$ref": "#/$defs/skillId"},
+        "executionMode": {"enum": ["plan-only", "apply-requested"]},
+        "target": {"$ref": "#/$defs/target"},
+        "finding": {"$ref": "#/$defs/finding"},
+        "bindings": {"$ref": "#/$defs/bindings"},
+        "effect": {"$ref": "#/$defs/effect"},
+        "idempotencyKey": {"$ref": "#/$defs/sha256"},
+        "requiredGrantBindings": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "operationId", "findingDigest", "targetRepository", "exactBaseSha", "desiredStateDigest",
+              "catalogDigest", "skillDigest", "policyDigest", "planDigest"
+            ]
+          }
+        },
+        "planDigest": {"$ref": "#/$defs/sha256"},
+        "llmAuthority": {"const": "propose-only"}
+      }
+    },
+    "grantBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema", "schema", "grantRef", "grantDigest", "planDigest", "operationId",
+        "skillId", "targetRepository", "baseSha", "desiredStateDigest", "findingDigest", "catalogDigest",
+        "skillDigest", "policyDigest", "authorizedEffect", "issuedByRef", "expiresAt", "singleUse"
+      ],
+      "properties": {
+        "$schema": {"const": "https://wellmanifest.dev/schemas/skill-execution/v1"},
+        "schema": {"const": "wellmanifest.skill-grant-binding/v1"},
+        "grantRef": {"$ref": "#/$defs/reference"},
+        "grantDigest": {"$ref": "#/$defs/sha256"},
+        "planDigest": {"$ref": "#/$defs/sha256"},
+        "operationId": {"$ref": "#/$defs/operationId"},
+        "skillId": {"$ref": "#/$defs/skillId"},
+        "targetRepository": {"$ref": "#/$defs/repository"},
+        "baseSha": {"oneOf": [{"$ref": "#/$defs/commit"}, {"type": "null"}]},
+        "desiredStateDigest": {"$ref": "#/$defs/sha256"},
+        "findingDigest": {"$ref": "#/$defs/sha256"},
+        "catalogDigest": {"$ref": "#/$defs/sha256"},
+        "skillDigest": {"$ref": "#/$defs/sha256"},
+        "policyDigest": {"$ref": "#/$defs/sha256"},
+        "authorizedEffect": {"enum": ["repository-create", "mirror-register", "profile-apply", "pull-request"]},
+        "issuedByRef": {"$ref": "#/$defs/reference"},
+        "expiresAt": {"type": "string", "format": "date-time"},
+        "singleUse": {"const": true}
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validatorRef", "subjectDigest", "exactHeadSha", "outcome", "evidenceRef"],
+      "properties": {
+        "validatorRef": {"$ref": "#/$defs/reference"},
+        "subjectDigest": {"$ref": "#/$defs/sha256"},
+        "exactHeadSha": {"oneOf": [{"$ref": "#/$defs/commit"}, {"type": "null"}]},
+        "outcome": {"enum": ["approved", "rejected"]},
+        "evidenceRef": {"$ref": "#/$defs/reference"}
+      }
+    },
+    "eql": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expectationId", "outcome", "evidenceRef"],
+      "properties": {
+        "expectationId": {"$ref": "#/$defs/identifier"},
+        "outcome": {"enum": ["satisfied", "unsatisfied", "not-run"]},
+        "evidenceRef": {"oneOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]}
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileRef", "status", "evidenceRef"],
+      "properties": {
+        "profileRef": {"$ref": "#/$defs/reference"},
+        "status": {"enum": ["not-needed", "available", "executed", "failed"]},
+        "evidenceRef": {"oneOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]}
+      }
+    },
+    "terminalReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema", "schema", "receiptId", "planDigest", "grantRef", "grantDigest",
+        "operationId", "targetRepository", "status", "headSha", "evidenceRefs",
+        "validation", "eql", "rollback", "terminal", "secretMaterialIncluded"
+      ],
+      "properties": {
+        "$schema": {"const": "https://wellmanifest.dev/schemas/skill-execution/v1"},
+        "schema": {"const": "wellmanifest.skill-terminal-receipt/v1"},
+        "receiptId": {"$ref": "#/$defs/reference"},
+        "planDigest": {"$ref": "#/$defs/sha256"},
+        "grantRef": {"oneOf": [{"$ref": "#/$defs/reference"}, {"type": "null"}]},
+        "grantDigest": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "operationId": {"$ref": "#/$defs/operationId"},
+        "targetRepository": {"$ref": "#/$defs/repository"},
+        "status": {"enum": ["planned", "succeeded", "blocked", "failed", "rolled-back"]},
+        "headSha": {"oneOf": [{"$ref": "#/$defs/commit"}, {"type": "null"}]},
+        "evidenceRefs": {
+          "type": "array", "minItems": 1, "maxItems": 50, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/reference"}
+        },
+        "validation": {"oneOf": [{"$ref": "#/$defs/validation"}, {"type": "null"}]},
+        "eql": {"$ref": "#/$defs/eql"},
+        "rollback": {"$ref": "#/$defs/rollback"},
+        "terminal": {"const": true},
+        "secretMaterialIncluded": {"const": false}
+      }
+    },
+    "executionError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema", "schema", "errorId", "code", "errorRef", "errorClass", "phase",
+        "retryable", "correlationId", "planDigest", "targetRepository", "evidenceRefs",
+        "terminal", "secretMaterialIncluded"
+      ],
+      "properties": {
+        "$schema": {"const": "https://wellmanifest.dev/schemas/skill-execution/v1"},
+        "schema": {"const": "wellmanifest.skill-execution-error/v1"},
+        "errorId": {"$ref": "#/$defs/identifier"},
+        "code": {"$ref": "#/$defs/diagnosticCode"},
+        "errorRef": {"$ref": "#/$defs/reference"},
+        "errorClass": {
+          "enum": ["availability", "configuration", "integrity", "policy", "security", "state", "unknown"]
+        },
+        "phase": {"enum": ["plan", "authorize", "repair", "validate", "publish", "readback", "rollback"]},
+        "retryable": {"type": "boolean"},
+        "correlationId": {"$ref": "#/$defs/identifier"},
+        "planDigest": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "targetRepository": {"oneOf": [{"$ref": "#/$defs/repository"}, {"type": "null"}]},
+        "evidenceRefs": {
+          "type": "array", "maxItems": 20, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/reference"}
+        },
+        "terminal": {"const": true},
+        "secretMaterialIncluded": {"const": false}
+      }
+    }
+  }
+}

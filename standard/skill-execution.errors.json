@@ -1,0 +1,14 @@
+{
+  "schema": "wellmanifest.skill-execution-error-registry/v1",
+  "errors": [
+    {"code": "SKILL-EXEC-UNREGISTERED-OPERATION", "errorRef": "error://wellmanifest.skills/SKILL-EXEC-UNREGISTERED-OPERATION", "errorClass": "policy", "retryable": false, "reaction": "block", "resolution": "select.registered-operation"},
+    {"code": "SKILL-EXEC-PLAN-DIGEST-MISMATCH", "errorRef": "error://wellmanifest.skills/SKILL-EXEC-PLAN-DIGEST-MISMATCH", "errorClass": "integrity", "retryable": false, "reaction": "refresh-plan", "resolution": "recompute.canonical-plan"},
+    {"code": "SKILL-EXEC-GRANT-MISSING", "errorRef": "error://wellmanifest.skills/SKILL-EXEC-GRANT-MISSING", "errorClass": "policy", "retryable": false, "reaction": "request-grant", "resolution": "obtain.external-exact-grant"},
+    {"code": "SKILL-EXEC-GRANT-MISMATCH", "errorRef": "error://wellmanifest.skills/SKILL-EXEC-GRANT-MISMATCH", "errorClass": "security", "retryable": false, "reaction": "block", "resolution": "discard.mismatched-grant"},
+    {"code": "SKILL-EXEC-GRANT-EXPIRED", "errorRef": "error://wellmanifest.skills/SKILL-EXEC-GRANT-EXPIRED", "errorClass": "policy", "retryable": false, "reaction": "request-grant", "resolution": "obtain.fresh-exact-grant"},
+    {"code": "SKILL-EXEC-BASE-DRIFT", "errorRef": "error://wellmanifest.skills/SKILL-EXEC-BASE-DRIFT", "errorClass": "state", "retryable": true, "reaction": "refresh-plan", "resolution": "reobserve.exact-base"},
+    {"code": "SKILL-EXEC-VALIDATION-REJECTED", "errorRef": "error://wellmanifest.skills/SKILL-EXEC-VALIDATION-REJECTED", "errorClass": "integrity", "retryable": true, "reaction": "refresh-plan", "resolution": "repair.validator-findings"},
+    {"code": "SKILL-EXEC-READBACK-FAILED", "errorRef": "error://wellmanifest.skills/SKILL-EXEC-READBACK-FAILED", "errorClass": "integrity", "retryable": true, "reaction": "rollback", "resolution": "execute.bound-rollback"},
+    {"code": "SKILL-EXEC-SECRET-MATERIAL", "errorRef": "error://wellmanifest.skills/SKILL-EXEC-SECRET-MATERIAL", "errorClass": "security", "retryable": false, "reaction": "redact-and-escalate", "resolution": "rotate.external-secret"}
+  ]
+}

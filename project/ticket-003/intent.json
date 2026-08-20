@@ -1,0 +1,96 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-003",
+  "summary": "Define governed skill execution handoff contracts",
+  "workstream": "integration",
+  "classification": {
+    "kind": "FEATURE",
+    "priority": "P1",
+    "origin": "requested"
+  },
+  "allowedPaths": [
+    "project/ticket-003/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "docs/**",
+    "standard/**"
+  ],
+  "forbiddenPaths": ["project/ticket-*/user-*.md"],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "e532254cac934d7ef39174e52c4690a78b24dbaf",
+    "targetBranch": "main",
+    "outcome": "Portable data-only execution handoffs bind governed repository plans to external exact grants, terminal receipts and canonical errors without granting or executing authority.",
+    "nonGoals": [
+      "Issue or verify bearer credentials",
+      "Execute repository, forge or OneDev mutations",
+      "Replace wellmanifest/poa or wellmanifest/repair-lifecycle",
+      "Allow an LLM to produce a grant, target, command or receipt",
+      "Change the existing wellmanifest skills v1 definition and selection contract"
+    ],
+    "complexity": "M",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 9,
+      "maxAffectedComponents": 3,
+      "maxPublicInterfaceChanges": 2,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Add a companion skill-execution handoff family that carries only exact references and digests; authority remains external and runtime-specific execution remains in Subactor.",
+      "components": [
+        {
+          "name": "execution-handoff-contract",
+          "paths": [
+            "standard/skill-execution.schema.json",
+            "standard/skill-execution.errors.json"
+          ]
+        },
+        {
+          "name": "semantic-conformance",
+          "paths": [
+            "standard/execution_conformance.py",
+            "standard/conformance.py"
+          ]
+        },
+        {
+          "name": "composition-guidance",
+          "paths": [
+            "docs/ARCHITECTURE.md",
+            "docs/ADOPTION.md"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [
+        "Introduce wellmanifest.skill-execution-plan/v1, grant-binding/v1, terminal-receipt/v1 and execution-error/v1"
+      ],
+      "dataChanges": [
+        "Add stable repository operation IDs and canonical execution error records"
+      ],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Remove the companion execution handoff artifacts and their call from bundled conformance; the existing Skill DSL v1 remains unchanged."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-06",
+        "commands": [
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all",
+          "./project/governance-check.sh --actor agent",
+          "git diff --check"
+        ],
+        "evidence": "project/ticket-003/ai-codex-logs.txt"
+      }
+    ]
+  }
+}

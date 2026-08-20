@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
+import importlib.util
 import json
 import re
 from pathlib import Path
@@ -585,6 +586,13 @@ def run_all(c: Contracts) -> None:
     escaped["selections"][0]["skillId"] = "skill.repository.other-remediation.v1"
     expect_rejected(c, escaped, request)
     print(f"PASS: {len(valid)} valid documents, {len(invalid) + 1} adversarial cases")
+    execution_path = Path(__file__).with_name("execution_conformance.py")
+    spec = importlib.util.spec_from_file_location("wellmanifest_execution_conformance", execution_path)
+    if spec is None or spec.loader is None:
+        raise ContractError("execution conformance module is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.run_all()
 
 
 def main() -> int:

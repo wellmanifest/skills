@@ -2,8 +2,9 @@
 
 ## Scope and composition
 
-This standard owns portable, data-only skill definitions, catalog indexes and
-candidate-bound LLM selection documents. It answers four questions:
+This standard owns portable, data-only skill definitions, catalog indexes,
+candidate-bound LLM selection documents and exact execution handoffs. It
+answers four questions:
 
 1. Which stable diagnostics make a skill eligible?
 2. Which agent phases exchange which bounded artifacts?
@@ -11,8 +12,10 @@ candidate-bound LLM selection documents. It answers four questions:
 4. Which findings may be routine candidates and which require a protected
    decision route?
 
-It does not own agent identities, execution, mutation grants, task state,
-priority policy or merge authority. Those responsibilities remain composed:
+It does not own agent identities, execution, grant issuance or verification,
+task state, priority policy or merge authority. Its grant-binding document is
+only an inert projection of authority issued and verified elsewhere. Those
+responsibilities remain composed:
 
 - `wellmanifest/agent` owns Doctor, Repair, Validator, Skills and other role
   boundaries; only Repair may mutate and only through a pull request.
@@ -67,6 +70,26 @@ external authority in an isolated workspace. Validator uses a distinct
 identity and the exact pull-request head. Publication succeeds only after
 trusted exact-head validation and independent read-back.
 
+The companion `skill-execution/v1` handoff family makes that composition
+machine-checkable without moving authority here. It contains four closed
+documents:
+
+- an inert plan for one stable operation ID and one exact repository;
+- a single-use external grant binding that must match every plan digest and
+  target binding;
+- a terminal receipt with independent validation, rollback state and EQL
+  read-back;
+- a structured error envelope that resolves to the closed canonical error
+  registry.
+
+Repository bootstrap binds expected absence plus an exact desired-state digest
+instead of inventing a base SHA. Every operation on an existing repository
+binds its exact base SHA. Validation is represented by registered check IDs;
+the standard never carries shell or argv. The six stable operations are
+`repository:bootstrap`, `repository:register-mirror`,
+`repository:profile-validate`, `repository:profile-apply`,
+`repository:repair` and `repository:update`.
+
 ## Normative invariants
 
 1. Every object is closed; unknown fields fail validation.
@@ -93,6 +116,12 @@ trusted exact-head validation and independent read-back.
     creating a ticket is not a repair.
 12. Agent-specific prose in `SKILL.md` explains use; `skill.json` is the
     machine contract. A script is an implementation aid, not authority.
+13. An effect request remains inert until an external, unexpired, single-use
+    grant binds the complete plan; the binding never contains bearer material.
+14. A successful pull-request receipt binds independent Validator evidence to
+    its exact head and requires satisfied EQL read-back.
+15. Failure output uses a registered error code and exact canonical error
+    reference; free-form errors cannot become control input.
 
 ## Protected safety classes
 
