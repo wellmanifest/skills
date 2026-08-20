@@ -3,7 +3,7 @@
 - **ID**: ticket-001
 - **Owner**: unresolved:human
 - **Status**: IN_PROGRESS
-- **Workflow state**: EDIT
+- **Workflow state**: PUBLICATION
 - **Created**: 2026-08-20
 
 ## Goal and scope
@@ -19,17 +19,18 @@ lifecycle and does not execute a Subactor runtime.
 
 ## Acceptance criteria
 
-- [ ] AC-01: The repository has an immutable published governance adoption and
+- [x] AC-01: The repository has an immutable published governance adoption and
   a real local seed baseline before standard implementation.
-- [ ] AC-02: A closed schema defines versioned skill definitions, catalogs,
+- [x] AC-02: A closed schema defines versioned skill definitions, catalogs,
   selection requests and deterministic selection receipts.
-- [ ] AC-03: Request-only GBNF excludes shell, argv, URLs, secrets, credentials,
+- [x] AC-03: Request-only GBNF excludes shell, argv, URLs, secrets, credentials,
   grants and merge commands from LLM-produced requests.
-- [ ] AC-04: Stable error routing covers safe automation, stash, license,
+- [x] AC-04: Stable error routing covers safe automation, stash, license,
   secret and ambiguous-change cases with fail-closed authority classes.
-- [ ] AC-05: Documentation defines composition, agent-specific use and the
+- [x] AC-05: Documentation defines composition, agent-specific use and the
   advisory-only LLM boundary.
-- [ ] AC-06: Positive and adversarial conformance plus governance gates pass.
+- [x] AC-06: Positive and adversarial conformance tests pass.
+- [x] AC-07: Governance and diff-hygiene gates pass against the exact baseline.
 
 ## Authorization
 
@@ -45,7 +46,9 @@ does not authorize direct merge, secret access or irreversible remediation.
 
 ## Baseline
 
-To be recorded after the seed transaction.
+The local governed seed transaction created
+`5f695003be1b42f932e82a73716bda99fbda94a5`. Standard implementation begins
+after this SHA and bounded delivery uses it as the exact accepted base.
 
 ## Participants
 

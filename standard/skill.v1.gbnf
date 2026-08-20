@@ -1,0 +1,22 @@
+# Canonical propose-only LLM output for skill selection. The accepted language
+# is the intersection of this grammar, skill.schema.json and deterministic
+# candidate revalidation. It cannot emit authority, grants, credentials,
+# secrets, shell, argv, URI, transport, targets or merge commands.
+root ::= proposal
+proposal ::= "{\"$schema\":\"https://wellmanifest.dev/schemas/skills/v1\",\"schema\":\"wellmanifest.skill-selection-proposal/v1\",\"catalogDigest\":" sha256 ",\"requestDigest\":" sha256 ",\"effect\":\"propose-only\",\"selections\":[" selection-list "]}"
+selection-list ::= "" | selection ("," selection)*
+selection ::= "{\"fingerprint\":" sha256 ",\"skillId\":" skill-id ",\"priorityAdjustment\":" adjustment ",\"reasonCode\":" reason-code ",\"rationale\":" rationale "}"
+skill-id ::= "\"skill." name "." name ".v" positive-digits "\""
+reason-code ::= "\"blast-radius\"" | "\"dependency-order\"" | "\"freshness\"" | "\"operator-impact\"" | "\"recurrence\""
+adjustment ::= "-25" | "-24" | "-23" | "-22" | "-21" | "-20" | "-19" | "-18" | "-17" | "-16" | "-15" | "-14" | "-13" | "-12" | "-11" | "-10" | "-9" | "-8" | "-7" | "-6" | "-5" | "-4" | "-3" | "-2" | "-1" | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "11" | "12" | "13" | "14" | "15" | "16" | "17" | "18" | "19" | "20" | "21" | "22" | "23" | "24" | "25"
+rationale ::= "\"" rationale-char rationale-tail "\""
+rationale-tail ::= "" | rationale-char rationale-tail
+rationale-char ::= [A-Za-z0-9 .,;:_()/-]
+name ::= lower name-tail
+name-tail ::= "" | name-char name-tail
+name-char ::= [a-z0-9-]
+positive-digits ::= [1-9] ([0-9])*
+sha256 ::= "\"" hex64 "\""
+hex64 ::= hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex hex
+hex ::= [a-f0-9]
+lower ::= [a-z]

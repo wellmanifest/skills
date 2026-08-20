@@ -28,6 +28,13 @@ secret and ambiguous changes need explicit non-automatic routes.
   from the request to execute this work.
 - Adopted `wellmanifest/new-project` v0.18.1 at immutable revision
   `16f7aea148a7f979e5c5abdfd4bc112224904d36`.
+- Created the governed seed baseline
+  `5f695003be1b42f932e82a73716bda99fbda94a5` before implementation.
+- Added closed definition, catalog, selection-request and propose-only selection
+  document variants plus a request-only GBNF.
+- Added deterministic cross-document validation and protected safety-class
+  regressions for stash, license, secret, ambiguity and destructive state.
+- Documented composition and the adoption contract for `subactor/*-agent`.
 
 ## Blockers
 

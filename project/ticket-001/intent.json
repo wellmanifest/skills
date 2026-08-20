@@ -19,5 +19,68 @@
   "stacks": [],
   "dependsOn": [],
   "conflictsWith": [],
-  "integrationTicket": null
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "5f695003be1b42f932e82a73716bda99fbda94a5",
+    "targetBranch": "main",
+    "outcome": "A portable governed Skill DSL that deterministically routes stable diagnostics to bounded agent operations while keeping LLM decisions advisory and protected changes fail-closed.",
+    "nonGoals": [
+      "Run or schedule Subactor agents",
+      "Redefine agent role or repair lifecycle authority",
+      "Store credentials or secret values",
+      "Generate shell, argv, URI, transport or merge commands",
+      "Automatically resolve stash, license, secret, ambiguous or destructive findings"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 1,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Own only skill definitions, catalogs and propose-only selection contracts; compose external agent, priority, policy, POA and repair lifecycle packs; enforce protected safety classes in dependency-free conformance.",
+      "components": [
+        {
+          "name": "normative-contract",
+          "paths": [
+            "standard/skill.schema.json",
+            "standard/skill.v1.gbnf"
+          ]
+        },
+        {
+          "name": "conformance-and-guidance",
+          "paths": [
+            "standard/conformance.py",
+            "docs/ARCHITECTURE.md",
+            "docs/ADOPTION.md"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [
+        "Introduce the experimental wellmanifest.skills/v1 document family"
+      ],
+      "dataChanges": [
+        "Add closed skill definition, catalog, selection request and recommendation documents"
+      ],
+      "ui": {"impact": "none", "states": [], "evidence": []},
+      "rollback": "Remove the five ticket-owned standard files while preserving the governed baseline and ticket evidence."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-06",
+        "commands": ["python3 standard/conformance.py --all"],
+        "evidence": "project/ticket-001/ai-codex-logs.txt"
+      },
+      {
+        "criterion": "AC-07",
+        "commands": ["./project/governance-check.sh --actor agent", "git diff --check"],
+        "evidence": "project/ticket-001/ai-codex-logs.txt"
+      }
+    ]
+  }
 }
