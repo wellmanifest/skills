@@ -1,0 +1,8 @@
+# Ticket Changelog (ticket-001)
+
+## [0.1.0] - 2026-08-20
+
+- Initial governance scaffold created.
+- No human participant identity or content was generated.
+- Adopted the published new-project package and recorded the bounded standard
+  scope, protected error classes and autonomous seed authorization.
