@@ -13,3 +13,22 @@ The adversarial suite removes SKILL-EXEC-PROFILE-NOT-READY from an otherwise
 valid registry and requires rejection. No runtime transport, dependency,
 credential, grant issuance or adopter effect was introduced. Publication
 remains subject to protected exact-head validation.
+
+2026-08-20T13:35:45Z protected standard publication
+
+Validator run: 32374960040
+Approved head: 99b0fca1569f52d9fe583469d730ab316b4e3dc2
+Approval review: 4983287085
+Merge commit: 926d5ed72e3a69472019c43c4a36e09981ff5f88
+Validator actor: ifuri-validator-agent[bot]
+
+2026-08-20T13:46:10Z adopter read-back
+
+PASS: subactor/skills-agent pins merged revision 926d5ed72e3a..., the exact
+execution-error projection and conformance digest.
+PASS: local adopter validation included 190 tests, 10 valid and 10 adversarial
+execution documents, full task validation, Ruff, compileall, diff hygiene and
+four skill-creator validations.
+PASS: hosted checks and Validator run 32375918254 accepted exact adopter head
+74a5eb887a77efd1d6aaf05fbec570c5b35f4cf3 (review 4983381222); PR #42 merged
+as 8f6bba2560ac38dcc12eda12915fa83445455c80.

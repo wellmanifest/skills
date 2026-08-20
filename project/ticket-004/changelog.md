@@ -8,3 +8,5 @@
   transport and ordered non-terminal follow-up.
 - Defined adopter composition rules that prohibit authority inheritance and
   invented profile evidence.
+- Recorded protected exact-head publication and successful immutable adoption
+  in `subactor/skills-agent`, including runtime and instruction regressions.
