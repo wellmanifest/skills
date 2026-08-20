@@ -1,0 +1,409 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wellmanifest.dev/schemas/skills/v1",
+  "title": "Wellmanifest governed skills v1",
+  "oneOf": [
+    {"$ref": "#/$defs/definition"},
+    {"$ref": "#/$defs/catalog"},
+    {"$ref": "#/$defs/selectionRequest"},
+    {"$ref": "#/$defs/selectionProposal"}
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*$",
+      "maxLength": 160
+    },
+    "skillId": {
+      "type": "string",
+      "pattern": "^skill\\.[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*\\.v[1-9][0-9]*$",
+      "maxLength": 160
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[a-z0-9.-]+)?$"
+    },
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "maxLength": 200
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$",
+      "maxLength": 300
+    },
+    "diagnosticCode": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)*$",
+      "maxLength": 80
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision", "path", "sha256"],
+      "properties": {
+        "repository": {"$ref": "#/$defs/repository"},
+        "revision": {"$ref": "#/$defs/commit"},
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "errorClass": {
+      "enum": [
+        "availability",
+        "configuration",
+        "integrity",
+        "policy",
+        "security",
+        "state",
+        "unknown"
+      ]
+    },
+    "safetyClass": {
+      "enum": ["routine", "stash", "license", "secret", "ambiguous", "destructive"]
+    },
+    "priority": {"enum": ["P0", "P1", "P2", "P3"]},
+    "binding": {
+      "enum": [
+        "findingDigest",
+        "targetRepository",
+        "exactBaseSha",
+        "catalogDigest",
+        "skillDigest",
+        "policyDigest",
+        "decisionRef"
+      ]
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "requiredBindings", "whenMissing"],
+      "properties": {
+        "mode": {
+          "enum": ["standing-policy", "digest-bound", "human-decision", "secret-intake"]
+        },
+        "requiredBindings": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/binding"}
+        },
+        "whenMissing": {"enum": ["block", "escalate", "plan-only"]}
+      }
+    },
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consumes", "produces", "requires", "prohibits"],
+      "properties": {
+        "consumes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "produces": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "requires": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "prohibits": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        }
+      }
+    },
+    "definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema",
+        "schema",
+        "skillId",
+        "version",
+        "title",
+        "description",
+        "match",
+        "routing",
+        "authority",
+        "operation",
+        "agents",
+        "completionCriteria",
+        "llmAuthority"
+      ],
+      "properties": {
+        "$schema": {"const": "https://wellmanifest.dev/schemas/skills/v1"},
+        "schema": {"const": "wellmanifest.skill-definition/v1"},
+        "skillId": {"$ref": "#/$defs/skillId"},
+        "version": {"$ref": "#/$defs/semver"},
+        "title": {"type": "string", "minLength": 3, "maxLength": 160},
+        "description": {"type": "string", "minLength": 3, "maxLength": 1000},
+        "match": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["diagnosticCodes", "errorClasses", "fallback"],
+          "properties": {
+            "diagnosticCodes": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/diagnosticCode"}
+            },
+            "errorClasses": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/errorClass"}
+            },
+            "fallback": {"type": "boolean"}
+          }
+        },
+        "routing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["safetyClass", "basePriority", "deduplication"],
+          "properties": {
+            "safetyClass": {"$ref": "#/$defs/safetyClass"},
+            "basePriority": {"$ref": "#/$defs/priority"},
+            "deduplication": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "scope"],
+              "properties": {
+                "key": {"const": "fingerprint"},
+                "scope": {"const": "target-repository"}
+              }
+            }
+          }
+        },
+        "authority": {"$ref": "#/$defs/authority"},
+        "operation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["capability", "executor", "effect", "maxChangedFiles"],
+          "properties": {
+            "capability": {"$ref": "#/$defs/identifier"},
+            "executor": {
+              "enum": [
+                "doctor-agent",
+                "repair-agent",
+                "validator-agent",
+                "skills-agent",
+                "human",
+                "secret-intake"
+              ]
+            },
+            "effect": {"enum": ["none", "pull-request"]},
+            "maxChangedFiles": {"type": "integer", "minimum": 0, "maximum": 1000}
+          }
+        },
+        "agents": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "doctor-agent": {"$ref": "#/$defs/phase"},
+            "repair-agent": {"$ref": "#/$defs/phase"},
+            "validator-agent": {"$ref": "#/$defs/phase"},
+            "skills-agent": {"$ref": "#/$defs/phase"}
+          }
+        },
+        "completionCriteria": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "llmAuthority": {"const": "propose-only"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"routing": {"properties": {"safetyClass": {"const": "routine"}}}}
+          },
+          "then": {
+            "properties": {
+              "authority": {
+                "properties": {"mode": {"enum": ["standing-policy", "digest-bound"]}}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "routing": {
+                "properties": {
+                  "safetyClass": {"enum": ["stash", "license", "ambiguous", "destructive"]}
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {"authority": {"properties": {"mode": {"const": "human-decision"}}}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"routing": {"properties": {"safetyClass": {"const": "secret"}}}}
+          },
+          "then": {
+            "properties": {
+              "authority": {"properties": {"mode": {"const": "secret-intake"}}},
+              "operation": {
+                "properties": {
+                  "executor": {"const": "secret-intake"},
+                  "effect": {"const": "none"},
+                  "maxChangedFiles": {"const": 0}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"operation": {"properties": {"effect": {"const": "pull-request"}}}}},
+          "then": {
+            "properties": {
+              "operation": {
+                "properties": {
+                  "executor": {"const": "repair-agent"},
+                  "maxChangedFiles": {"minimum": 1}
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "catalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skillId", "definition", "safetyClass", "diagnosticCodes"],
+      "properties": {
+        "skillId": {"$ref": "#/$defs/skillId"},
+        "definition": {"$ref": "#/$defs/artifactRef"},
+        "safetyClass": {"$ref": "#/$defs/safetyClass"},
+        "diagnosticCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/diagnosticCode"}
+        }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["$schema", "schema", "catalogId", "version", "entries", "defaultRoute"],
+      "properties": {
+        "$schema": {"const": "https://wellmanifest.dev/schemas/skills/v1"},
+        "schema": {"const": "wellmanifest.skill-catalog/v1"},
+        "catalogId": {"$ref": "#/$defs/identifier"},
+        "version": {"$ref": "#/$defs/semver"},
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/catalogEntry"}
+        },
+        "defaultRoute": {"const": "block"}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fingerprint",
+        "targetRepository",
+        "diagnosticCode",
+        "errorClass",
+        "severity",
+        "occurrences",
+        "eligibleSkills",
+        "deterministicPriority"
+      ],
+      "properties": {
+        "fingerprint": {"$ref": "#/$defs/sha256"},
+        "targetRepository": {"$ref": "#/$defs/repository"},
+        "diagnosticCode": {"$ref": "#/$defs/diagnosticCode"},
+        "errorClass": {"$ref": "#/$defs/errorClass"},
+        "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
+        "occurrences": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "eligibleSkills": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/skillId"}
+        },
+        "deterministicPriority": {"$ref": "#/$defs/priority"}
+      }
+    },
+    "selectionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema",
+        "schema",
+        "requestId",
+        "catalogDigest",
+        "policyDigest",
+        "priorityProfileDigest",
+        "findings"
+      ],
+      "properties": {
+        "$schema": {"const": "https://wellmanifest.dev/schemas/skills/v1"},
+        "schema": {"const": "wellmanifest.skill-selection-request/v1"},
+        "requestId": {"$ref": "#/$defs/identifier"},
+        "catalogDigest": {"$ref": "#/$defs/sha256"},
+        "policyDigest": {"$ref": "#/$defs/sha256"},
+        "priorityProfileDigest": {"$ref": "#/$defs/sha256"},
+        "findings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/finding"}
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fingerprint", "skillId", "priorityAdjustment", "reasonCode", "rationale"],
+      "properties": {
+        "fingerprint": {"$ref": "#/$defs/sha256"},
+        "skillId": {"$ref": "#/$defs/skillId"},
+        "priorityAdjustment": {"type": "integer", "minimum": -25, "maximum": 25},
+        "reasonCode": {
+          "enum": ["blast-radius", "dependency-order", "freshness", "operator-impact", "recurrence"]
+        },
+        "rationale": {"type": "string", "minLength": 1, "maxLength": 300}
+      }
+    },
+    "selectionProposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["$schema", "schema", "catalogDigest", "requestDigest", "effect", "selections"],
+      "properties": {
+        "$schema": {"const": "https://wellmanifest.dev/schemas/skills/v1"},
+        "schema": {"const": "wellmanifest.skill-selection-proposal/v1"},
+        "catalogDigest": {"$ref": "#/$defs/sha256"},
+        "requestDigest": {"$ref": "#/$defs/sha256"},
+        "effect": {"const": "propose-only"},
+        "selections": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/selection"}
+        }
+      }
+    }
+  }
+}

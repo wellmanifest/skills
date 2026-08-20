@@ -1,0 +1,17 @@
+2026-08-20T08:26:00Z python3 standard/conformance.py --all
+PASS: 9 valid documents, 9 adversarial cases
+
+2026-08-20T08:26:00Z Draft202012Validator.check_schema and positive examples
+PASS: JSON Schema validates 9 positive examples
+
+2026-08-20T08:27:00Z ./project/governance-check.sh --actor agent
+GOV-PASS: passed (0 errors, 0 warnings)
+
+2026-08-20T08:29:00Z final local validation
+PASS: 9 valid documents, 9 adversarial cases
+GOV-PASS: passed (0 errors, 0 warnings)
+git diff --check: PASS
+
+2026-08-20T08:33:00Z adopter pilot design review
+PASS: removed impossible self-referential commit/digest fields; provenance is
+catalog-entry -> definition and adopter-profile -> catalog.
