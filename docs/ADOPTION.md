@@ -96,6 +96,27 @@ Then run the adopting repository's governance gate and runtime tests. Schema
 conformance alone does not prove a script is safe, authorize an effect or
 approve a pull request.
 
+For an execution handoff, validate each deterministic document and then its
+cross-document binding:
+
+```bash
+python3 standard/execution_conformance.py --file evidence/operation-plan.json
+python3 standard/execution_conformance.py \
+  --grant-with-plan evidence/operation-plan.json evidence/grant-binding.json
+python3 standard/execution_conformance.py \
+  --receipt-with-plan evidence/operation-plan.json evidence/terminal-receipt.json \
+  --grant evidence/grant-binding.json
+```
+
+The adopting runtime must resolve `validationChecks` and
+`rollbackProfileRef` from its own trusted, pinned registries. It must never
+turn an LLM string into a command. For `executionMode=plan-only`, emit a
+`planned` terminal receipt with no grant, head or validation evidence. For an
+effect, verify the external grant outside model context and consume it once.
+Repository bootstrap additionally requires private visibility, expected
+absence and read-back of the created repository before dependent mirror or
+profile operations become runnable.
+
 ## Required CI assertions
 
 An adopting runtime should fail when:
@@ -110,6 +131,12 @@ An adopting runtime should fail when:
   external authority evidence;
 - a receipt contains a secret value, bearer identifier or executable command;
 - the pull-request head differs from the head independently validated.
+- an effect grant differs from any plan, target, desired-state or policy
+  digest, is expired, reusable or authorizes a non-effect;
+- a terminal error has no exact record in
+  `standard/skill-execution.errors.json`;
+- a successful effect lacks EQL read-back, rollback posture or independent
+  validation evidence.
 
 ## Controlled rollout
 
