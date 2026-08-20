@@ -8,3 +8,5 @@
 - [x] Run Skill DSL conformance as a stable hosted required check (`ticket-002`).
 - [x] Define exact plan/grant/receipt/error handoffs without moving execution
   authority into the standard (`ticket-003`).
+- [ ] Standardize non-terminal bootstrap validation and ordered follow-up
+  failures without moving runtime transport into the standard (`ticket-004`).

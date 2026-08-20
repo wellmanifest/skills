@@ -409,8 +409,7 @@ def validate_receipt_pair(plan: Any, receipt: Any, grant: Any | None = None, *, 
             raise ContractError("pull-request receipt lacks exact-head validation")
 
 
-def load_error_catalog() -> dict[str, dict[str, Any]]:
-    value = json.loads(ERRORS_PATH.read_text(encoding="utf-8"))
+def validate_error_catalog(value: Any) -> dict[str, dict[str, Any]]:
     value = exact(value, {"schema", "errors"})
     if value["schema"] != "wellmanifest.skill-execution-error-registry/v1":
         raise ContractError("unknown error registry")
@@ -430,7 +429,24 @@ def load_error_catalog() -> dict[str, dict[str, Any]]:
         if code in catalog:
             raise ContractError("duplicate error code")
         catalog[code] = item
+    required = {
+        "SKILL-EXEC-VALIDATION-RECEIPT-MISMATCH",
+        "SKILL-EXEC-VALIDATION-TRANSPORT-UNTRUSTED",
+        "SKILL-EXEC-FOLLOWUP-ORDER-MISMATCH",
+        "SKILL-EXEC-FOLLOWUP-INCOMPLETE",
+        "SKILL-EXEC-PROFILE-NOT-READY",
+    }
+    missing = required - set(catalog)
+    if missing:
+        raise ContractError(
+            "error registry omits required bootstrap follow-up errors: "
+            + ", ".join(sorted(missing))
+        )
     return catalog
+
+
+def load_error_catalog() -> dict[str, dict[str, Any]]:
+    return validate_error_catalog(json.loads(ERRORS_PATH.read_text(encoding="utf-8")))
 
 
 def validate_error(value: Any) -> dict[str, Any]:
@@ -679,6 +695,13 @@ def run_all() -> None:
     bad = error_example()
     bad["credential"] = "opaque"
     invalid.append(lambda bad=bad: validate_error(bad))
+    error_registry = json.loads(ERRORS_PATH.read_text(encoding="utf-8"))
+    error_registry["errors"] = [
+        item
+        for item in error_registry["errors"]
+        if item["code"] != "SKILL-EXEC-PROFILE-NOT-READY"
+    ]
+    invalid.append(lambda error_registry=error_registry: validate_error_catalog(error_registry))
     for callback in invalid:
         expect_rejected(callback)
     print(f"PASS: {len(valid)} execution documents, {len(invalid)} adversarial cases")

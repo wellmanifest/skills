@@ -67,6 +67,29 @@ Other `*-agent` roles may consume a skill only when their declared
 `wellmanifest/agent` profile matches the corresponding phase. A role cannot
 gain a new lane or mutation effect from `skill.json` or `SKILL.md`.
 
+## Repository-bootstrap follow-up
+
+Adopters that execute repository bootstrap must preserve the following state
+machine:
+
+1. Persist the Repair read-back receipt bound to the exact plan.
+2. Accept only an independently produced, closed validation receipt whose
+   canonical hash and plan/subject/desired-state bindings match.
+3. Consume it once through an authenticated, least-privilege transport. Treat
+   exact replay as deduplication and a conflicting replay as
+   `SKILL-EXEC-VALIDATION-RECEIPT-MISMATCH`.
+4. Keep the execution non-terminal and run the declared mirror registration,
+   profile validation and profile application contracts in order. Do not reuse
+   bootstrap authority for a later mutation.
+5. Emit terminal success only after every follow-up has independent read-back.
+
+Block an administrator credential shared with Validator as
+`SKILL-EXEC-VALIDATION-TRANSPORT-UNTRUSTED`. Use
+`SKILL-EXEC-FOLLOWUP-ORDER-MISMATCH` for a substituted order,
+`SKILL-EXEC-FOLLOWUP-INCOMPLETE` while a bound step remains, and
+`SKILL-EXEC-PROFILE-NOT-READY` when exact runnable profile evidence is absent.
+These errors never authorize a model to create the missing evidence.
+
 ## Deterministic checks
 
 Validate the standard itself:
