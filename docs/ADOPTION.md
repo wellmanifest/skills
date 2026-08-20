@@ -25,9 +25,11 @@ inside a skill directory. A script must consume validated data and must never
 be treated as a grant.
 
 The repository catalog conforms to `wellmanifest.skill-catalog/v1` and pins
-each `skill.json` by repository, commit, path and SHA-256. The adopting runtime
-also pins the Wellmanifest schema and conformance revision. Moving branches,
-unhashed local files and remote schema fetching fail closed.
+each `skill.json` by repository, commit, path and SHA-256. The adopting profile
+pins that catalog by the same four external coordinates; neither document
+self-references a future commit. The runtime also pins the Wellmanifest schema
+and conformance revision. Moving branches, unhashed local files and remote
+schema fetching fail closed.
 
 ## Agent responsibilities
 

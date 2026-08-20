@@ -8,3 +8,5 @@
   scope, protected error classes and autonomous seed authorization.
 - Defined the Skill DSL, constrained LLM proposal grammar, conformance suite and
   runtime adoption guidance.
+- Corrected immutable provenance to avoid impossible self-referential commit
+  hashes while preserving external catalog and profile pinning.

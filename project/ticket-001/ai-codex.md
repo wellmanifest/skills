@@ -35,6 +35,8 @@ secret and ambiguous changes need explicit non-automatic routes.
 - Added deterministic cross-document validation and protected safety-class
   regressions for stash, license, secret, ambiguity and destructive state.
 - Documented composition and the adoption contract for `subactor/*-agent`.
+- Removed self-referential source coordinates found during the real adopter
+  pilot: catalogs pin definitions and adopter profiles pin catalogs.
 
 ## Blockers
 

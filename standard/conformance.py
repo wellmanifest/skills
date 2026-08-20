@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent
 SCHEMA_PATH = ROOT / "skill.schema.json"
 GRAMMAR_PATH = ROOT / "skill.v1.gbnf"
 SCHEMA_URI = "https://wellmanifest.dev/schemas/skills/v1"
-SCHEMA_DIGEST = "b1912ad51cfc9b47accf72bc719e932131444cccfddfb5a5c891bafdb3e69a6a"
+SCHEMA_DIGEST = "4e59a6c771958afe17057d42469130a5abd9071042e763f76136f6c72c0705c0"
 GRAMMAR_DIGEST = "c01fbcbcd004ac955b700fdfe1b8bb538119159d02b48e93d9823278c058c835"
 PROTECTED_HUMAN = {"stash", "license", "ambiguous", "destructive"}
 EXECUTABLE_TEXT = re.compile(
@@ -202,7 +202,6 @@ def validate_definition(c: Contracts, value: Any) -> None:
             "version",
             "title",
             "description",
-            "source",
             "match",
             "routing",
             "authority",
@@ -217,7 +216,6 @@ def validate_definition(c: Contracts, value: Any) -> None:
     c.ref("semver", value["version"])
     string(value["title"], 3, 160)
     string(value["description"], 3, 1000)
-    validate_artifact(c, value["source"])
 
     match = exact(value["match"], {"diagnosticCodes", "errorClasses", "fallback"})
     codes = unique_strings(match["diagnosticCodes"], 0)
@@ -291,11 +289,10 @@ def validate_catalog_entry(c: Contracts, value: Any) -> str:
 
 
 def validate_catalog(c: Contracts, value: Any) -> None:
-    value = exact(value, {"$schema", "schema", "catalogId", "version", "source", "entries", "defaultRoute"})
+    value = exact(value, {"$schema", "schema", "catalogId", "version", "entries", "defaultRoute"})
     validate_header(value, "wellmanifest.skill-catalog/v1")
     c.ref("identifier", value["catalogId"])
     c.ref("semver", value["version"])
-    validate_artifact(c, value["source"])
     if not isinstance(value["entries"], list) or not value["entries"]:
         raise ContractError("empty catalog")
     ids = [validate_catalog_entry(c, entry) for entry in value["entries"]]
@@ -447,7 +444,6 @@ def definition_example(safety: str = "routine") -> dict[str, Any]:
         "version": "1.0.0",
         "title": f"Governed {safety} remediation",
         "description": "Route a stable diagnostic through bounded agent phases.",
-        "source": artifact(f"SKILLS/{safety}/skill.json"),
         "match": {
             "diagnosticCodes": [f"DIAGIT-{safety.upper()}-001"],
             "errorClasses": ["state" if safety == "stash" else "policy"],
@@ -523,7 +519,6 @@ def catalog_example() -> dict[str, Any]:
         "schema": "wellmanifest.skill-catalog/v1",
         "catalogId": "subactor.repository-remediation",
         "version": "1.0.0",
-        "source": artifact("SKILLS/catalog.json"),
         "entries": [
             {
                 "skillId": "skill.repository.routine-remediation.v1",

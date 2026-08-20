@@ -135,7 +135,6 @@
         "version",
         "title",
         "description",
-        "source",
         "match",
         "routing",
         "authority",
@@ -151,7 +150,6 @@
         "version": {"$ref": "#/$defs/semver"},
         "title": {"type": "string", "minLength": 3, "maxLength": 160},
         "description": {"type": "string", "minLength": 3, "maxLength": 1000},
-        "source": {"$ref": "#/$defs/artifactRef"},
         "match": {
           "type": "object",
           "additionalProperties": false,
@@ -306,13 +304,12 @@
     "catalog": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["$schema", "schema", "catalogId", "version", "source", "entries", "defaultRoute"],
+      "required": ["$schema", "schema", "catalogId", "version", "entries", "defaultRoute"],
       "properties": {
         "$schema": {"const": "https://wellmanifest.dev/schemas/skills/v1"},
         "schema": {"const": "wellmanifest.skill-catalog/v1"},
         "catalogId": {"$ref": "#/$defs/identifier"},
         "version": {"$ref": "#/$defs/semver"},
-        "source": {"$ref": "#/$defs/artifactRef"},
         "entries": {
           "type": "array",
           "minItems": 1,

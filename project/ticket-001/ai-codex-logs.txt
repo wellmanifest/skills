@@ -11,3 +11,7 @@ GOV-PASS: passed (0 errors, 0 warnings)
 PASS: 9 valid documents, 9 adversarial cases
 GOV-PASS: passed (0 errors, 0 warnings)
 git diff --check: PASS
+
+2026-08-20T08:33:00Z adopter pilot design review
+PASS: removed impossible self-referential commit/digest fields; provenance is
+catalog-entry -> definition and adopter-profile -> catalog.

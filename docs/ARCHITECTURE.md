@@ -70,8 +70,10 @@ trusted exact-head validation and independent read-back.
 ## Normative invariants
 
 1. Every object is closed; unknown fields fail validation.
-2. A skill definition is immutable evidence through repository, 40-character
-   revision, relative path and SHA-256 digest.
+2. Every catalog entry makes its skill definition immutable through repository,
+   40-character revision, relative path and SHA-256 digest. The adopting
+   profile pins the catalog itself; documents never self-reference their own
+   not-yet-existing commit.
 3. A catalog defaults to `block`; no fuzzy or LLM-only fallback is allowed.
 4. Diagnostic selection is deterministic before an LLM sees any candidate.
 5. The LLM authority is always `propose-only`; output is constrained by the
