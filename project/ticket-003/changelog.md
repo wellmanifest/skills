@@ -9,3 +9,5 @@
 - Added the closed plan, external grant binding, terminal receipt and error
   document family with six stable repository operation IDs.
 - Added exact cross-document conformance, canonical errors and adopter guidance.
+- Recorded protected exact-head Validator approval and merge, followed by
+  successful immutable adoption in `subactor/skills-agent`.
