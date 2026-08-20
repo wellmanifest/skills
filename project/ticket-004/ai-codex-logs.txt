@@ -1,0 +1,15 @@
+2026-08-20T13:32:12Z ticket-004 validation
+
+PASS python3 standard/conformance.py --all
+  9 Skill DSL v1 documents, 9 adversarial cases
+  10 execution documents, 10 adversarial cases
+PASS python3 standard/execution_conformance.py --all
+  10 execution documents, 10 adversarial cases
+PASS ./project/governance-check.sh --actor agent
+  0 errors, 0 warnings
+PASS git diff --check
+
+The adversarial suite removes SKILL-EXEC-PROFILE-NOT-READY from an otherwise
+valid registry and requires rejection. No runtime transport, dependency,
+credential, grant issuance or adopter effect was introduced. Publication
+remains subject to protected exact-head validation.

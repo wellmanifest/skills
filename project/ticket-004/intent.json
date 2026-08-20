@@ -1,0 +1,86 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-004",
+  "summary": "Standardize non-terminal bootstrap follow-ups",
+  "workstream": "integration",
+  "classification": {
+    "kind": "FEATURE",
+    "priority": "P1",
+    "origin": "requested"
+  },
+  "allowedPaths": [
+    "project/ticket-004/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "VERSION",
+    "docs/**",
+    "standard/**"
+  ],
+  "forbiddenPaths": ["project/ticket-*/user-*.md"],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "f726950c66a098858c087796605ef5689ef7b930",
+    "targetBranch": "main",
+    "outcome": "Portable Skills errors and composition rules keep bootstrap validation non-terminal until exact ordered follow-ups are independently authorized and read back.",
+    "nonGoals": [
+      "Execute Subactor agents or mutate adopter configuration",
+      "Define an HTTP, queue or signature implementation",
+      "Issue authority or let bootstrap authority cover later mutations",
+      "Invent repository content, test commands, credentials, licenses or destructive recovery"
+    ],
+    "complexity": "M",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 9,
+      "maxAffectedComponents": 3,
+      "maxPublicInterfaceChanges": 2,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Extend the existing execution-error companion standard and adoption guidance; leave receipt transport and follow-up execution in runtime adopters.",
+      "components": [
+        {
+          "name": "execution-error-contract",
+          "paths": [
+            "standard/skill-execution.errors.json",
+            "standard/execution_conformance.py"
+          ]
+        },
+        {
+          "name": "bootstrap-composition-guidance",
+          "paths": ["docs/ARCHITECTURE.md", "docs/ADOPTION.md"]
+        },
+        {
+          "name": "publication-metadata",
+          "paths": ["VERSION"]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [
+        "Add canonical validation-transport, follow-up and profile-readiness execution errors"
+      ],
+      "dataChanges": [
+        "Require the additive error codes during execution-registry conformance"
+      ],
+      "ui": {"impact": "none", "states": [], "evidence": []},
+      "rollback": "Remove the additive error records, required-code check and bootstrap composition guidance; runtime adopters remain fail-closed on unknown errors."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-06",
+        "commands": [
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all",
+          "./project/governance-check.sh --actor agent",
+          "git diff --check"
+        ],
+        "evidence": "project/ticket-004/ai-codex-logs.txt"
+      }
+    ]
+  }
+}

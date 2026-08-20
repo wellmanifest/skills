@@ -33,6 +33,27 @@ Wellmanifest is `HOME` for this domain pack. Product CLIs, daemons and agents
 remain `HOME subactor` or another runtime organization and `ADOPT
 wellmanifest/skills`; adoption never moves their runtime into Wellmanifest.
 
+## Bootstrap validation and follow-up composition
+
+A repository-bootstrap repair receipt and its independent Validator receipt
+prove only the bounded control-plane subject they name. The Validator receipt
+is non-terminal while ordered follow-up operations remain. A runtime consumes
+that exact receipt once, deduplicates an identical replay, and rejects any
+different receipt for the same plan. Receipt transport is runtime-owned and
+must authenticate the producer without sharing a broader administrator secret.
+
+`repository:register-mirror`, `repository:profile-validate`, and
+`repository:profile-apply` retain their declared order and individual skill
+contracts. Bootstrap authority does not flow into those operations. Read-only
+profile validation may use its declared standing policy; control-plane
+mutations require their own exact external authority. Only the final joined
+read-back may produce a terminal receipt.
+
+An absent checkout, test declaration or exact profile is evidence of
+`SKILL-EXEC-PROFILE-NOT-READY`, not permission for an LLM or runtime to invent
+repository contents, commands, credentials, license choices or destructive
+recovery.
+
 ## Normative flow
 
 ```mermaid
