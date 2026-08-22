@@ -140,6 +140,24 @@ Repository bootstrap additionally requires private visibility, expected
 absence and read-back of the created repository before dependent mirror or
 profile operations become runnable.
 
+For a remote repository that exists but has no refs, do not reuse
+`repository:bootstrap` and do not add `repository:initial-ref` to the closed
+`skill-execution/v1` vocabulary. Pin and validate the complementary profile:
+
+```bash
+python3 standard/operation_profile_conformance.py \
+  --file standard/repository-initial-ref.operation-profile.json
+```
+
+The runtime must resolve both pinned `wellmanifest/git-lifecycle` artifacts
+locally, verify their SHA-256 digests and bind `domain-executor` to a compatible
+governed agent profile. Until that binding exists, selection may create a
+proposal but execution stays blocked. A repository-creation or bootstrap grant
+cannot authorize first-ref publication: obtain a new grant bound to the exact
+plan, repository, branch, source commit, tree and allowlist. Persist the
+non-terminal publication receipt, then require independent exact-head and tree
+read-back before accepting or quarantining the ref.
+
 ## Required CI assertions
 
 An adopting runtime should fail when:
@@ -160,6 +178,11 @@ An adopting runtime should fail when:
   `standard/skill-execution.errors.json`;
 - a successful effect lacks EQL read-back, rollback posture or independent
   validation evidence.
+- an operation profile points to a branch, tag, URL, unverified digest or a
+  contract owned by Skills instead of the responsible domain pack;
+- initial-ref publication inherits bootstrap authority, uses force, becomes
+  terminal before Validator read-back or deletes a quarantined ref
+  automatically.
 
 ## Controlled rollout
 

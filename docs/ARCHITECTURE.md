@@ -111,6 +111,31 @@ the standard never carries shell or argv. The six stable operations are
 `repository:profile-validate`, `repository:profile-apply`,
 `repository:repair` and `repository:update`.
 
+## Cross-standard operation profiles
+
+An operation whose mutation lifecycle is already owned by another Wellmanifest
+domain pack does not become a new `skill-execution/v1` enum. Skills publishes a
+closed `wellmanifest.skill-operation-profile/v1` document instead. The profile
+pins the domain schema and lifecycle by repository, immutable commit, relative
+path and SHA-256, then declares only the orchestration boundary. This prevents
+Skills from becoming a second source of truth for a Git, ticket, identity or
+service lifecycle.
+
+The first profile is `repository:initial-ref`. Its normative mutation contract
+remains `wellmanifest/git-lifecycle` at revision
+`72ade3b6c7ad68f617a50871a1f7466e7a868ab9`. Doctor proves the remote has zero
+refs; Skills may propose the pinned operation; a runtime-owned domain executor
+consumes a separate exact single-use grant; Validator independently accepts or
+quarantines the published ref. Publication is deliberately non-terminal, a
+bootstrap grant cannot be inherited, force push is prohibited and quarantine
+never authorizes automatic ref deletion.
+
+`domain-executor` is a composition slot, not a new agent identity or authority
+source. An adopter must bind it to a separately governed runtime role before
+execution. If no compatible role profile exists, the operation remains
+plan-only. This repository does not fill that gap by granting Repair a direct
+default-branch mutation or by embedding a Git implementation.
+
 ## Normative invariants
 
 1. Every object is closed; unknown fields fail validation.
@@ -143,6 +168,12 @@ the standard never carries shell or argv. The six stable operations are
     its exact head and requires satisfied EQL read-back.
 15. Failure output uses a registered error code and exact canonical error
     reference; free-form errors cannot become control input.
+16. A cross-standard operation profile pins one immutable domain contract and
+    leaves execution, transport, credentials and grant verification with the
+    runtime adopter.
+17. An initial-ref publication is non-terminal until an independent Validator
+    emits either `accepted` or `quarantined`; neither outcome authorizes
+    automatic ref deletion.
 
 ## Protected safety classes
 

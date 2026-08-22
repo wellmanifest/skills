@@ -1,0 +1,88 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-005",
+  "summary": "Standardize one-time repository initial-ref publication",
+  "workstream": "integration",
+  "classification": {
+    "kind": "FEATURE",
+    "priority": "P1",
+    "origin": "requested"
+  },
+  "allowedPaths": [
+    "project/ticket-005/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "VERSION",
+    "docs/**",
+    "standard/**"
+  ],
+  "forbiddenPaths": ["project/ticket-*/user-*.md"],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "ba48c7015e0cf8edec179b2c6279c96f10f226a5",
+    "targetBranch": "main",
+    "outcome": "Skills can route repository:initial-ref through the immutable git-lifecycle contract without gaining execution or authority ownership.",
+    "nonGoals": [
+      "Execute Git commands or publish a remote ref",
+      "Issue, transport or consume bearer authority",
+      "Change skill-execution/v1 accepted enums",
+      "Define a runtime agent, queue adapter or repository content",
+      "Delete a quarantined ref automatically"
+    ],
+    "complexity": "M",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 6,
+      "maxAffectedComponents": 3,
+      "maxPublicInterfaceChanges": 1,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Add a complementary operation-profile contract instead of widening skill-execution/v1 or embedding the initial-ref lifecycle in Skills.",
+      "components": [
+        {
+          "name": "initial-ref-operation-profile",
+          "paths": [
+            "standard/skill-operation-profile.schema.json",
+            "standard/repository-initial-ref.operation-profile.json"
+          ]
+        },
+        {
+          "name": "profile-conformance",
+          "paths": ["standard/operation_profile_conformance.py"]
+        },
+        {
+          "name": "composition-guidance",
+          "paths": ["docs/ARCHITECTURE.md", "docs/ADOPTION.md", "VERSION"]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [
+        "Add wellmanifest.skill-operation-profile/v1 for immutable cross-standard handoff profiles"
+      ],
+      "dataChanges": [
+        "Publish the canonical repository:initial-ref profile pinned to wellmanifest/git-lifecycle revision 72ade3b6c7ad68f617a50871a1f7466e7a868ab9"
+      ],
+      "ui": {"impact": "none", "states": [], "evidence": []},
+      "rollback": "Remove the additive profile family and guidance; existing skill-execution/v1 adopters remain unchanged."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-05",
+        "commands": [
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all",
+          "python3 standard/operation_profile_conformance.py --all",
+          "./project/governance-check.sh --actor agent",
+          "git diff --check"
+        ],
+        "evidence": "project/ticket-005/ai-codex-logs.txt"
+      }
+    ]
+  }
+}
