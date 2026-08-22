@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wellmanifest.dev/schemas/skill-operation-profile/v1",
+  "title": "Wellmanifest cross-standard skill operation profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema",
+    "profileId",
+    "operationId",
+    "effect",
+    "operationContract",
+    "lifecycleContract",
+    "phases",
+    "authority",
+    "completion",
+    "runtimeOwnership",
+    "llmAuthority",
+    "secretMaterialIncluded"
+  ],
+  "properties": {
+    "$schema": {"const": "https://wellmanifest.dev/schemas/skill-operation-profile/v1"},
+    "schema": {"const": "wellmanifest.skill-operation-profile/v1"},
+    "profileId": {"$ref": "#/$defs/identifier"},
+    "operationId": {"$ref": "#/$defs/operationId"},
+    "effect": {"$ref": "#/$defs/identifier"},
+    "operationContract": {"$ref": "#/$defs/artifactRef"},
+    "lifecycleContract": {"$ref": "#/$defs/artifactRef"},
+    "phases": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        {"$ref": "#/$defs/doctorPhase"},
+        {"$ref": "#/$defs/skillsPhase"},
+        {"$ref": "#/$defs/executorPhase"},
+        {"$ref": "#/$defs/validatorPhase"}
+      ],
+      "items": false
+    },
+    "authority": {"$ref": "#/$defs/authority"},
+    "completion": {"$ref": "#/$defs/completion"},
+    "runtimeOwnership": {"$ref": "#/$defs/runtimeOwnership"},
+    "llmAuthority": {"const": "propose-only"},
+    "secretMaterialIncluded": {"const": false}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*$",
+      "maxLength": 160
+    },
+    "operationId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$",
+      "maxLength": 120
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "maxLength": 200
+    },
+    "commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$",
+      "maxLength": 300
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision", "path", "sha256"],
+      "properties": {
+        "repository": {"$ref": "#/$defs/repository"},
+        "revision": {"$ref": "#/$defs/commit"},
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "phaseData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "consumes", "produces", "requires", "prohibits"],
+      "properties": {
+        "role": {"enum": ["doctor-agent", "skills-agent", "domain-executor", "validator-agent"]},
+        "consumes": {
+          "type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "produces": {
+          "type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "requires": {
+          "type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "prohibits": {
+          "type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        }
+      }
+    },
+    "doctorPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phaseData"},
+        {"properties": {"role": {"const": "doctor-agent"}}}
+      ]
+    },
+    "skillsPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phaseData"},
+        {"properties": {"role": {"const": "skills-agent"}}}
+      ]
+    },
+    "executorPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phaseData"},
+        {"properties": {"role": {"const": "domain-executor"}}}
+      ]
+    },
+    "validatorPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phaseData"},
+        {"properties": {"role": {"const": "validator-agent"}}}
+      ]
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "requiredBindings", "singleUse", "inheritedAuthority", "whenMissing"],
+      "properties": {
+        "mode": {"const": "digest-bound"},
+        "requiredBindings": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "planDigest",
+              "repositoryRef",
+              "targetBranchRef",
+              "sourceCommitSha",
+              "sourceTreeDigest",
+              "allowlistDigest"
+            ]
+          }
+        },
+        "singleUse": {"const": true},
+        "inheritedAuthority": {"const": false},
+        "whenMissing": {"const": "block"}
+      }
+    },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publicationState", "publicationTerminal", "terminalStates",
+        "independentValidation", "automaticRefDeletion"
+      ],
+      "properties": {
+        "publicationState": {"$ref": "#/$defs/identifier"},
+        "publicationTerminal": {"const": false},
+        "terminalStates": {
+          "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "independentValidation": {"const": true},
+        "automaticRefDeletion": {"const": false}
+      }
+    },
+    "runtimeOwnership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executor", "transport", "credentials", "grantVerification"],
+      "properties": {
+        "executor": {"const": "runtime-adopter"},
+        "transport": {"const": "runtime-adopter"},
+        "credentials": {"const": "runtime-adopter"},
+        "grantVerification": {"const": "runtime-adopter"}
+      }
+    }
+  }
+}

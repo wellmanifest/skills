@@ -10,3 +10,5 @@
   authority into the standard (`ticket-003`).
 - [ ] Standardize non-terminal bootstrap validation and ordered follow-up
   failures without moving runtime transport into the standard (`ticket-004`).
+- [ ] Bind Skills routing for one-time repository initial-ref publication to
+  the immutable git-lifecycle domain contract (`ticket-005`).

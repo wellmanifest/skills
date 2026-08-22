@@ -1,0 +1,9 @@
+2026-08-22T21:09:00Z ticket-005 validation
+PASS: JSON Schema and canonical profile
+PASS: 1 operation profile, 10 adversarial cases
+PASS: 9 valid documents, 9 adversarial cases
+PASS: 10 execution documents, 10 adversarial cases
+PASS: git-lifecycle schema digest 6fdba8c71765cb217219bd3f459258170f7f1eaf70bb60970c4d3ecc68f0d724
+PASS: git-lifecycle lifecycle digest 7ac49adfb92dac1d03e10efb382290e0e08c367b5ec655933d12db30803dbe2c
+GOV-PASS: passed (0 errors, 0 warnings)
+PASS: git diff --check

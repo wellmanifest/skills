@@ -1,0 +1,78 @@
+{
+  "$schema": "https://wellmanifest.dev/schemas/skill-operation-profile/v1",
+  "schema": "wellmanifest.skill-operation-profile/v1",
+  "profileId": "profile.repository.initial-ref.v1",
+  "operationId": "repository:initial-ref",
+  "effect": "initial-ref-publish",
+  "operationContract": {
+    "repository": "wellmanifest/git-lifecycle",
+    "revision": "72ade3b6c7ad68f617a50871a1f7466e7a868ab9",
+    "path": "standard/repository-initial-ref.schema.json",
+    "sha256": "6fdba8c71765cb217219bd3f459258170f7f1eaf70bb60970c4d3ecc68f0d724"
+  },
+  "lifecycleContract": {
+    "repository": "wellmanifest/git-lifecycle",
+    "revision": "72ade3b6c7ad68f617a50871a1f7466e7a868ab9",
+    "path": "standard/repository-initial-ref.lifecycle",
+    "sha256": "7ac49adfb92dac1d03e10efb382290e0e08c367b5ec655933d12db30803dbe2c"
+  },
+  "phases": [
+    {
+      "role": "doctor-agent",
+      "consumes": ["remote.inventory"],
+      "produces": ["diagnosis.finding"],
+      "requires": ["remote.zero-refs", "evidence.redacted"],
+      "prohibits": ["repository.mutation", "authority.issue"]
+    },
+    {
+      "role": "skills-agent",
+      "consumes": ["diagnosis.finding", "operation.profile"],
+      "produces": ["operation.proposal"],
+      "requires": ["contract.immutable", "candidate.deterministic"],
+      "prohibits": ["authority.issue", "operation.execute"]
+    },
+    {
+      "role": "domain-executor",
+      "consumes": ["operation.plan", "grant.binding"],
+      "produces": ["publication.receipt"],
+      "requires": ["grant.exact", "remote.zero-refs", "source.exact"],
+      "prohibits": ["authority.inherit", "ref.force-push", "validation.self"]
+    },
+    {
+      "role": "validator-agent",
+      "consumes": ["publication.receipt", "remote.readback"],
+      "produces": ["terminal.receipt"],
+      "requires": ["identity.independent", "head.exact", "tree.exact"],
+      "prohibits": ["validation.self", "ref.delete", "authority.inherit"]
+    }
+  ],
+  "authority": {
+    "mode": "digest-bound",
+    "requiredBindings": [
+      "planDigest",
+      "repositoryRef",
+      "targetBranchRef",
+      "sourceCommitSha",
+      "sourceTreeDigest",
+      "allowlistDigest"
+    ],
+    "singleUse": true,
+    "inheritedAuthority": false,
+    "whenMissing": "block"
+  },
+  "completion": {
+    "publicationState": "initial-ref-published",
+    "publicationTerminal": false,
+    "terminalStates": ["accepted", "quarantined"],
+    "independentValidation": true,
+    "automaticRefDeletion": false
+  },
+  "runtimeOwnership": {
+    "executor": "runtime-adopter",
+    "transport": "runtime-adopter",
+    "credentials": "runtime-adopter",
+    "grantVerification": "runtime-adopter"
+  },
+  "llmAuthority": "propose-only",
+  "secretMaterialIncluded": false
+}
