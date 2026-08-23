@@ -1,5 +1,8 @@
-2026-08-23 plan base=d8fa0815f0247ccf8e8d7d20debd1bd8c59eecac
+2026-08-23 plan base=d8fa0815f0247ccf8e8d7d20debd1bd8c59eecac plan_commit=c253c26
 2026-08-23 adoption standard=0.18.6 revision=01397097ac53a01b2dd544f0b5908d22d1b526d5
 2026-08-23 agent_hosts result=GOV-AGENT-HOST-PASS
 2026-08-23 required_checks result=OK published=3
 2026-08-23 tests count=all result=OK
+2026-08-23 governance result=GOV-PASS base=d8fa0815f0247ccf8e8d7d20debd1bd8c59eecac
+2026-08-23 validator pr=9 head=7e5f04ac515f0f8afa74776267fa0389341df234 run=32664676878 merge=b66f4a95813d85b23fbbe6641661e61c6780f2ca
+2026-08-23 clean_main head=b66f4a95813d85b23fbbe6641661e61c6780f2ca tests=all governance=GOV-PASS
