@@ -1,0 +1,82 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-008",
+  "summary": "deduplicate unique strings validator per ssot standard",
+  "workstream": "integration",
+  "classification": {
+    "kind": "SERVICE",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-008/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "project/ticket-007/README.md",
+    "standard/execution_conformance.py",
+    "standard/conformance.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "151f3d5f970b68805e2996d97a2cf0a16252ef7f",
+    "targetBranch": "main",
+    "outcome": "Deduplicate unique_strings AST helper across standard/execution_conformance.py and standard/conformance.py per wellmanifest/ssot (SSOT-COUPLE-001).",
+    "nonGoals": [
+      "No schema or validator contract changes."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 15,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Import unique_strings in standard/execution_conformance.py from standard.conformance, resolving SSOT-COUPLE-001.",
+      "components": [
+        {
+          "name": "skills-conformance",
+          "paths": [
+            "standard/execution_conformance.py",
+            "standard/conformance.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket commit."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all"
+        ],
+        "evidence": "Both conformance suites pass."
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "./project/governance-check.sh --actor agent"
+        ],
+        "evidence": "Governance check passes with 0 errors."
+      }
+    ]
+  }
+}
