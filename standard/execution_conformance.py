@@ -10,6 +10,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
+try:
+    from standard.conformance import unique_strings
+except ImportError:
+    from conformance import unique_strings
+
 ROOT = Path(__file__).resolve().parent
 SCHEMA_PATH = ROOT / "skill-execution.schema.json"
 ERRORS_PATH = ROOT / "skill-execution.errors.json"
@@ -86,14 +91,6 @@ def boolean(value: Any, expected: bool | None = None) -> bool:
 def integer(value: Any, minimum: int, maximum: int) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
         raise ContractError("invalid integer")
-    return value
-
-
-def unique_strings(value: Any, minimum: int, maximum: int) -> list[str]:
-    if not isinstance(value, list) or not minimum <= len(value) <= maximum:
-        raise ContractError("invalid list")
-    if any(not isinstance(item, str) for item in value) or len(value) != len(set(value)):
-        raise ContractError("list must contain unique strings")
     return value
 
 
