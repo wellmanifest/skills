@@ -1,0 +1,93 @@
+{
+  "allowedPaths": [
+    "project/ticket-013/README.md",
+    "project/ticket-014/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "standard/skill_primitives.py",
+    "standard/test_skills_hardening.py"
+  ],
+  "classification": {
+    "kind": "BUG",
+    "origin": "health",
+    "priority": "P1"
+  },
+  "conflictsWith": [],
+  "delivery": {
+    "acceptedBaseSha": "cea52e8ebdf5b42f9168562abaa8052ec3aa35e2",
+    "architecture": {
+      "components": [
+        {
+          "name": "skills-conformance",
+          "paths": [
+            "standard/skill_primitives.py",
+            "standard/test_skills_hardening.py"
+          ]
+        }
+      ],
+      "dataChanges": [],
+      "decision": "Catch 4300-digit integer ValueError in strict_loads, reject lone UTF-16 surrogates across JSON/text primitives, scan JSON object keys with EXECUTABLE_OR_SECRET_TEXT in reject_sensitive_tree, extend symlink-ancestor rejection in read_regular_utf8 to absolute paths, reject Windows drive-letter prefixes in validate_safe_relative_path, and mark merged ticket-013 DONE.",
+      "interfaceChanges": [],
+      "responsibilityChanges": false,
+      "rollback": "Revert the ticket branch commit via protected PR delivery.",
+      "status": "accepted",
+      "ui": {
+        "evidence": [],
+        "impact": "none",
+        "states": []
+      }
+    },
+    "budgets": {
+      "maxAffectedComponents": 1,
+      "maxImplementationFiles": 3,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "complexity": "S",
+    "estimatedMinutes": 20,
+    "nonGoals": [
+      "No runtime dependency additions",
+      "No breaking changes to skill JSON schemas"
+    ],
+    "outcome": "Deterministic ContractError rejection of 4300+ digit JSON integers, lone UTF-16 surrogates, executable/secret JSON keys, absolute-path symlink ancestors, and Windows drive-letter relative paths while keeping all modules below 500 lines and closing merged ticket-013.",
+    "runtimeDependencies": [],
+    "targetBranch": "main",
+    "validation": [
+      {
+        "commands": [
+          "pytest -q",
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all",
+          "python3 standard/operation_profile_conformance.py --all"
+        ],
+        "criterion": "AC-01",
+        "evidence": "project/ticket-014/README.md"
+      },
+      {
+        "commands": [
+          "ruff check --no-cache standard"
+        ],
+        "criterion": "AC-02",
+        "evidence": "project/ticket-014/README.md"
+      },
+      {
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "criterion": "AC-03",
+        "evidence": "project/ticket-014/README.md"
+      }
+    ]
+  },
+  "dependsOn": [],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "integrationTicket": null,
+  "schema": "new-project.intent/v3",
+  "stacks": [],
+  "summary": "Harden skills JSON overflow/surrogates, absolute ancestor symlinks, and Windows drive paths",
+  "ticket": "ticket-014",
+  "workstream": "integration"
+}

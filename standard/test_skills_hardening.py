@@ -267,6 +267,41 @@ class SkillsHardeningTests(unittest.TestCase):
                 self.assertIsNotNone(pattern.match(valid_text))
                 self.assertIsNone(pattern.match(valid_text + "\n"))
 
+    def test_4300_digit_ints_surrogates_key_secrets_abs_symlinks_and_win_drives(self) -> None:
+        for bad_json in (
+            '{"n": ' + ("9" * 5000) + "}",
+            '{"a": "\\ud800"}',
+            '{"\\udfff": 1}',
+            '{"a": "\ud800"}',
+        ):
+            with self.subTest(sample=bad_json[:24]), self.assertRaises(ContractError):
+                strict_loads(bad_json)
+
+        for bad_obj in ({"a": "\ud800"}, {"\udfff": 1}):
+            with self.assertRaises(ContractError):
+                canonical(bad_obj)
+            with self.assertRaises(ContractError):
+                reject_sensitive_tree(bad_obj)
+        with self.assertRaises(ContractError):
+            primitives.sha256_text("bad-\ud800")
+        with self.assertRaises(ContractError):
+            primitives.bounded_text("bad-\ud800")
+        with self.assertRaises(ContractError):
+            reject_sensitive_tree({"https://remote.example/key": 1}, check_keys=False)
+        with self.assertRaises(ContractError):
+            primitives.validate_safe_relative_path("C:foo/bar", primitives.RELATIVE_PATH)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            real_dir = root / "real_dir" / "nested"
+            real_dir.mkdir(parents=True)
+            doc_file = real_dir / "skill.json"
+            doc_file.write_text('{"ok": 1}', encoding="utf-8")
+            sym_dir = root / "sym_dir"
+            sym_dir.symlink_to(root / "real_dir")
+            with self.assertRaises(ContractError):
+                read_regular_utf8(sym_dir / "nested" / "skill.json")
+
 
 if __name__ == "__main__":
     unittest.main()
