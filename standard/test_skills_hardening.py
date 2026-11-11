@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from standard import conformance, execution_conformance, execution_errors
+from standard import conformance, execution_conformance, execution_errors, skill_io
 from standard import operation_profile_conformance as profile_conformance
 from standard import skill_primitives as primitives
 from standard.skill_primitives import (
@@ -224,7 +224,7 @@ class SkillsHardeningTests(unittest.TestCase):
                 )
 
             with (
-                patch("standard.skill_primitives.os.fstat", side_effect=swapped_fstat),
+                patch.object(skill_io.os, "fstat", side_effect=swapped_fstat),
                 self.assertRaises(ContractError),
             ):
                 read_regular_utf8(target)
@@ -301,6 +301,80 @@ class SkillsHardeningTests(unittest.TestCase):
             sym_dir.symlink_to(root / "real_dir")
             with self.assertRaises(ContractError):
                 read_regular_utf8(sym_dir / "nested" / "skill.json")
+
+    def test_skill_io_modularization_relative_symlink_traversal_int_bounds_and_controls(
+        self,
+    ) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        for folder in ("standard", "tests"):
+            for py_file in sorted((repo_root / folder).glob("*.py")):
+                line_count = len(py_file.read_text(encoding="utf-8").splitlines())
+                self.assertLess(
+                    line_count, 500, f"{py_file.name} exceeded 500 lines ({line_count})"
+                )
+
+        self.assertIs(primitives.read_regular_utf8, skill_io.read_regular_utf8)
+        self.assertIs(primitives.strict_loads, skill_io.strict_loads)
+        self.assertIs(primitives.reject_sensitive_tree, skill_io.reject_sensitive_tree)
+
+        for bad_json in (
+            '{"n": ' + ("1" * 310) + "}",
+            '{"n": -' + ("9" * 10000) + "}",
+        ):
+            with self.assertRaises(ContractError):
+                strict_loads(bad_json)
+        with self.assertRaises(ContractError):
+            reject_sensitive_tree({"huge": 10**400})
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            real_dir = root / "real_dir"
+            sub_dir = root / "sub_dir"
+            real_dir.mkdir()
+            sub_dir.mkdir()
+            target = real_dir / "skill.json"
+            target.write_text('{"ok": 1}', encoding="utf-8")
+            sym_dir = root / "sym_dir"
+            sym_dir.symlink_to(real_dir)
+
+            with self.assertRaises(ContractError):
+                read_regular_utf8(Path(f"{sym_dir}/../real_dir/skill.json"))
+
+            prev_cwd = Path.cwd()
+            try:
+                os.chdir(root)
+                for rel_bad in (
+                    Path("sym_dir/skill.json"),
+                    Path("sym_dir/../real_dir/skill.json"),
+                ):
+                    with self.subTest(rel_bad=str(rel_bad)), self.assertRaises(ContractError):
+                        read_regular_utf8(rel_bad)
+                os.chdir(sub_dir)
+                for rel_bad in (
+                    Path("../sym_dir/skill.json"),
+                    Path("../sym_dir/../real_dir/skill.json"),
+                ):
+                    with self.subTest(rel_bad=str(rel_bad)), self.assertRaises(ContractError):
+                        read_regular_utf8(rel_bad)
+                self.assertEqual(read_regular_utf8(Path("../real_dir/skill.json")), '{"ok": 1}')
+            finally:
+                os.chdir(prev_cwd)
+
+        contracts = conformance.Contracts()
+        bad_title = conformance.definition_example("routine")
+        bad_title["title"] = "Line one\nLine two"
+        with self.assertRaises(ContractError):
+            conformance.validate_definition(contracts, bad_title)
+
+        ok_desc = conformance.definition_example("routine")
+        ok_desc["description"] = "Governed prose\n\twith safe newline."
+        conformance.validate_definition(contracts, ok_desc)
+
+        for ctrl_desc in ("Null\x00byte", "Carriage\rreturn", "Delete\x7fchar"):
+            bad_desc = conformance.definition_example("routine")
+            bad_desc["description"] = ctrl_desc
+            with self.subTest(ctrl_desc=repr(ctrl_desc)), self.assertRaises(ContractError):
+                conformance.validate_definition(contracts, bad_desc)
 
 
 if __name__ == "__main__":

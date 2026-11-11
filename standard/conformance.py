@@ -39,18 +39,45 @@ SCHEMA_DIGEST = "4e59a6c771958afe17057d42469130a5abd9071042e763f76136f6c72c0705c
 GRAMMAR_DIGEST = "c01fbcbcd004ac955b700fdfe1b8bb538119159d02b48e93d9823278c058c835"
 PROTECTED_HUMAN = {"stash", "license", "ambiguous", "destructive"}
 ERROR_CLASSES = {
-    "availability", "configuration", "integrity", "policy", "security", "state", "unknown"
+    "availability",
+    "configuration",
+    "integrity",
+    "policy",
+    "security",
+    "state",
+    "unknown",
 }
 DEFINITION_KEYS = {
-    "$schema", "schema", "skillId", "version", "title", "description", "match", "routing",
-    "authority", "operation", "agents", "completionCriteria", "llmAuthority",
+    "$schema",
+    "schema",
+    "skillId",
+    "version",
+    "title",
+    "description",
+    "match",
+    "routing",
+    "authority",
+    "operation",
+    "agents",
+    "completionCriteria",
+    "llmAuthority",
 }
 AUTHORITY_BINDINGS = {
-    "findingDigest", "targetRepository", "exactBaseSha", "catalogDigest",
-    "skillDigest", "policyDigest", "decisionRef",
+    "findingDigest",
+    "targetRepository",
+    "exactBaseSha",
+    "catalogDigest",
+    "skillDigest",
+    "policyDigest",
+    "decisionRef",
 }
 EXECUTORS = {
-    "doctor-agent", "repair-agent", "validator-agent", "skills-agent", "human", "secret-intake"
+    "doctor-agent",
+    "repair-agent",
+    "validator-agent",
+    "skills-agent",
+    "human",
+    "secret-intake",
 }
 
 
@@ -62,8 +89,14 @@ class Contracts:
             raise ContractError("schema definitions missing")
         defs = self.schema["$defs"]
         names = (
-            "identifier", "skillId", "semver", "sha256", "commit",
-            "repository", "relativePath", "diagnosticCode",
+            "identifier",
+            "skillId",
+            "semver",
+            "sha256",
+            "commit",
+            "repository",
+            "relativePath",
+            "diagnosticCode",
         )
         self.patterns = {
             name: _pr.compile_anchored_pattern(defs[name]["pattern"]) for name in names
@@ -97,8 +130,10 @@ class Contracts:
             raise ContractError("document variants incomplete")
         variants = {entry["$ref"] for entry in one_of}
         expected_variants = {
-            "#/$defs/definition", "#/$defs/catalog",
-            "#/$defs/selectionRequest", "#/$defs/selectionProposal",
+            "#/$defs/definition",
+            "#/$defs/catalog",
+            "#/$defs/selectionRequest",
+            "#/$defs/selectionProposal",
         }
         if variants != expected_variants:
             raise ContractError("document variants incomplete")
@@ -107,13 +142,21 @@ class Contracts:
         if digest(self.grammar) != GRAMMAR_DIGEST:
             raise ContractError("grammar digest mismatch")
         required_fragments = (
-            "root ::= proposal", "propose-only", "skill-id ::=",
-            "priorityAdjustment", "requestDigest",
+            "root ::= proposal",
+            "propose-only",
+            "skill-id ::=",
+            "priorityAdjustment",
+            "requestDigest",
         )
         if any(fragment not in self.grammar for fragment in required_fragments):
             raise ContractError("grammar incomplete")
         forbidden_fields = (
-            "authority", "grantRef", "credential", "shell", "argv", "targetRepository"
+            "authority",
+            "grantRef",
+            "credential",
+            "shell",
+            "argv",
+            "targetRepository",
         )
         if any(f'\\"{field}\\"' in self.grammar for field in forbidden_fields):
             raise ContractError("grammar exposes forbidden output field")
@@ -163,7 +206,7 @@ def validate_definition(c: Contracts, value: Any) -> None:
     _validate_skill_header(value, "wellmanifest.skill-definition/v1")
     c.ref("skillId", value["skillId"])
     c.ref("semver", value["version"])
-    string(value["title"], 3, 160)
+    string(value["title"], 3, 160, allow_newlines=False)
     string(value["description"], 3, 1000)
 
     match = exact(value["match"], {"diagnosticCodes", "errorClasses", "fallback"})
@@ -233,9 +276,7 @@ def _validate_catalog_entry(c: Contracts, value: Any) -> str:
 
 
 def validate_catalog(c: Contracts, value: Any) -> None:
-    value = exact(
-        value, {"$schema", "schema", "catalogId", "version", "entries", "defaultRoute"}
-    )
+    value = exact(value, {"$schema", "schema", "catalogId", "version", "entries", "defaultRoute"})
     _validate_skill_header(value, "wellmanifest.skill-catalog/v1")
     c.ref("identifier", value["catalogId"])
     c.ref("semver", value["version"])
@@ -251,8 +292,14 @@ def validate_catalog(c: Contracts, value: Any) -> None:
 
 def _validate_selection_finding(c: Contracts, value: Any) -> tuple[str, set[str]]:
     keys = {
-        "fingerprint", "targetRepository", "diagnosticCode", "errorClass",
-        "severity", "occurrences", "eligibleSkills", "deterministicPriority",
+        "fingerprint",
+        "targetRepository",
+        "diagnosticCode",
+        "errorClass",
+        "severity",
+        "occurrences",
+        "eligibleSkills",
+        "deterministicPriority",
     }
     value = exact(value, keys)
     fingerprint = c.ref("sha256", value["fingerprint"])
@@ -270,8 +317,13 @@ def _validate_selection_finding(c: Contracts, value: Any) -> tuple[str, set[str]
 
 def validate_selection_request(c: Contracts, value: Any) -> dict[str, set[str]]:
     keys = {
-        "$schema", "schema", "requestId", "catalogDigest",
-        "policyDigest", "priorityProfileDigest", "findings",
+        "$schema",
+        "schema",
+        "requestId",
+        "catalogDigest",
+        "policyDigest",
+        "priorityProfileDigest",
+        "findings",
     }
     value = exact(value, keys)
     _validate_skill_header(value, "wellmanifest.skill-selection-request/v1")
@@ -302,9 +354,7 @@ def validate_selection_proposal(c: Contracts, value: Any) -> list[tuple[str, str
     selections = value["selections"]
     if not isinstance(selections, list) or len(selections) > 100:
         raise ContractError("invalid selections")
-    reasons = {
-        "blast-radius", "dependency-order", "freshness", "operator-impact", "recurrence"
-    }
+    reasons = {"blast-radius", "dependency-order", "freshness", "operator-impact", "recurrence"}
     result: list[tuple[str, str]] = []
     for item in selections:
         item = exact(
