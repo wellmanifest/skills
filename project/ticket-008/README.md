@@ -1,9 +1,9 @@
 # Ticket 008: Deduplicate unique strings validator per SSOT standard
 
 - **ID**: ticket-008
-- **Owner**: agent:antigravity under SESSION_EXECUTION_AUTHORIZATION
-- **Status**: IN_PROGRESS
-- **Workflow state**: EDIT
+- **Owner**: tom
+- **Status**: DONE
+- **Workflow state**: PUBLICATION
 - **Created**: 2026-11-02
 
 ## Goal and scope
