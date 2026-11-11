@@ -1,0 +1,89 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-010",
+  "summary": "Add standalone pytest and unittest suite for governed skills conformance",
+  "workstream": "application",
+  "classification": {
+    "kind": "SERVICE",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-009/README.md",
+    "project/ticket-010/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "tests/test_skills_conformance.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "4f50588aa5ee67a516c9fa9ff584176ea9bde138",
+    "targetBranch": "main",
+    "outcome": "Deliver standalone pytest and unittest coverage across all three Wellmanifest governed skills conformance contracts and close ticket-009.",
+    "nonGoals": [
+      "No standard schema or validator behavior changes",
+      "No runtime dependency additions"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 20,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Implement tests/test_skills_conformance.py using standard library unittest so both pytest and python3 -m unittest execute positive, adversarial, and CLI exit-code checks.",
+      "components": [
+        {
+          "name": "skills-conformance-tests",
+          "paths": [
+            "tests/test_skills_conformance.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "pytest -q",
+          "PYTHONPATH=.:standard python3 -m unittest discover -s tests -v"
+        ],
+        "evidence": "project/ticket-010/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "ruff check standard tests"
+        ],
+        "evidence": "project/ticket-010/README.md"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-010/README.md"
+      }
+    ]
+  }
+}
