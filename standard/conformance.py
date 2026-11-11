@@ -4,98 +4,67 @@
 from __future__ import annotations
 
 import argparse
-import copy
-import hashlib
-import importlib.util
 import json
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
+try:
+    from standard import skill_fixtures as _fx
+    from standard import skill_primitives as _pr
+except ImportError:
+    import skill_fixtures as _fx  # type: ignore[no-redef]
+    import skill_primitives as _pr  # type: ignore[no-redef]
+
+ContractError = _pr.ContractError
+canonical = _pr.canonical
+digest = _pr.sha256_text
+exact = _pr.exact
+string = _pr.bounded_text
+integer = _pr.integer
+enum = _pr.enum
+unique_strings = _pr.unique_strings
+SCHEMA_URI = _fx.SCHEMA_URI
+artifact = _fx.artifact
+phase = _fx.phase
+definition_example = _fx.definition_example
+request_example = _fx.request_example
+proposal_example = _fx.proposal_example
+catalog_example = _fx.catalog_example
 
 ROOT = Path(__file__).resolve().parent
 SCHEMA_PATH = ROOT / "skill.schema.json"
 GRAMMAR_PATH = ROOT / "skill.v1.gbnf"
-SCHEMA_URI = "https://wellmanifest.dev/schemas/skills/v1"
 SCHEMA_DIGEST = "4e59a6c771958afe17057d42469130a5abd9071042e763f76136f6c72c0705c0"
 GRAMMAR_DIGEST = "c01fbcbcd004ac955b700fdfe1b8bb538119159d02b48e93d9823278c058c835"
 PROTECTED_HUMAN = {"stash", "license", "ambiguous", "destructive"}
-EXECUTABLE_TEXT = re.compile(
-    r"(?:https?://|bearer\s|-----BEGIN|\b(?:ba)?sh\s+-c\b|\bgit\s+(?:merge|push|reset)\b|"
-    r"\bcurl\s|\bwget\s|\$\(|`)",
-    re.I,
-)
-
-
-class ContractError(ValueError):
-    """A bounded conformance failure that does not echo untrusted content."""
-
-
-def canonical(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-
-
-def digest(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-def exact(value: Any, required: set[str], optional: set[str] | None = None) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise ContractError("expected object")
-    optional = optional or set()
-    if set(value) - required - optional:
-        raise ContractError("undeclared field")
-    if required - set(value):
-        raise ContractError("missing field")
-    return value
-
-
-def string(value: Any, minimum: int = 1, maximum: int = 1000) -> str:
-    if not isinstance(value, str) or not minimum <= len(value) <= maximum:
-        raise ContractError("invalid string")
-    if EXECUTABLE_TEXT.search(value):
-        raise ContractError("executable or transport text is forbidden")
-    return value
-
-
-def integer(value: Any, minimum: int, maximum: int) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
-        raise ContractError("invalid integer")
-    return value
-
-
-def enum(value: Any, accepted: set[str]) -> str:
-    if not isinstance(value, str) or value not in accepted:
-        raise ContractError("invalid enum")
-    return value
-
-
-def unique_strings(value: Any, minimum: int, maximum: int = 100) -> list[str]:
-    if not isinstance(value, list) or not minimum <= len(value) <= maximum:
-        raise ContractError("invalid list")
-    if any(not isinstance(item, str) for item in value) or len(value) != len(set(value)):
-        raise ContractError("list must contain unique strings")
-    return value
+ERROR_CLASSES = {
+    "availability", "configuration", "integrity", "policy", "security", "state", "unknown"
+}
+DEFINITION_KEYS = {
+    "$schema", "schema", "skillId", "version", "title", "description", "match", "routing",
+    "authority", "operation", "agents", "completionCriteria", "llmAuthority",
+}
+AUTHORITY_BINDINGS = {
+    "findingDigest", "targetRepository", "exactBaseSha", "catalogDigest",
+    "skillDigest", "policyDigest", "decisionRef",
+}
+EXECUTORS = {
+    "doctor-agent", "repair-agent", "validator-agent", "skills-agent", "human", "secret-intake"
+}
 
 
 class Contracts:
     def __init__(self) -> None:
-        self.schema = json.loads(SCHEMA_PATH.read_text("utf-8"))
+        self.schema = _pr.load_strict_json(SCHEMA_PATH)
         self.grammar = GRAMMAR_PATH.read_text("utf-8")
         defs = self.schema["$defs"]
-        self.patterns = {
-            name: re.compile(defs[name]["pattern"])
-            for name in (
-                "identifier",
-                "skillId",
-                "semver",
-                "sha256",
-                "commit",
-                "repository",
-                "relativePath",
-                "diagnosticCode",
-            )
-        }
+        names = (
+            "identifier", "skillId", "semver", "sha256", "commit",
+            "repository", "relativePath", "diagnosticCode",
+        )
+        self.patterns = {name: re.compile(defs[name]["pattern"]) for name in names}
 
     def ref(self, name: str, value: Any) -> str:
         if not isinstance(value, str) or self.patterns[name].fullmatch(value) is None:
@@ -108,82 +77,59 @@ class Contracts:
         if self.schema.get("$id") != SCHEMA_URI:
             raise ContractError("schema identity mismatch")
         variants = {entry.get("$ref") for entry in self.schema.get("oneOf", [])}
-        if variants != {
-            "#/$defs/definition",
-            "#/$defs/catalog",
-            "#/$defs/selectionRequest",
-            "#/$defs/selectionProposal",
-        }:
+        expected_variants = {
+            "#/$defs/definition", "#/$defs/catalog",
+            "#/$defs/selectionRequest", "#/$defs/selectionProposal",
+        }
+        if variants != expected_variants:
             raise ContractError("document variants incomplete")
         if digest(canonical(self.schema)) != SCHEMA_DIGEST:
             raise ContractError("schema digest mismatch")
         if digest(self.grammar) != GRAMMAR_DIGEST:
             raise ContractError("grammar digest mismatch")
-        for fragment in (
-            "root ::= proposal",
-            "propose-only",
-            "skill-id ::=",
-            "priorityAdjustment",
-            "requestDigest",
-        ):
-            if fragment not in self.grammar:
-                raise ContractError("grammar incomplete")
-        for forbidden in ("authority", "grantRef", "credential", "shell", "argv", "targetRepository"):
-            if f'\\"{forbidden}\\"' in self.grammar:
-                raise ContractError("grammar exposes forbidden output field")
-        self._closed(self.schema)
-
-    def _closed(self, value: Any) -> None:
-        if isinstance(value, dict):
-            if value.get("type") == "object" and value.get("additionalProperties") is not False:
-                raise ContractError("open object schema")
-            for child in value.values():
-                self._closed(child)
-        elif isinstance(value, list):
-            for child in value:
-                self._closed(child)
+        required_fragments = (
+            "root ::= proposal", "propose-only", "skill-id ::=",
+            "priorityAdjustment", "requestDigest",
+        )
+        if any(fragment not in self.grammar for fragment in required_fragments):
+            raise ContractError("grammar incomplete")
+        forbidden_fields = (
+            "authority", "grantRef", "credential", "shell", "argv", "targetRepository"
+        )
+        if any(f'\\"{field}\\"' in self.grammar for field in forbidden_fields):
+            raise ContractError("grammar exposes forbidden output field")
+        _pr.assert_closed_schema(self.schema)
 
 
-def validate_header(value: dict[str, Any], document_schema: str) -> None:
+def _validate_skill_header(value: dict[str, Any], document_schema: str) -> None:
     if value["$schema"] != SCHEMA_URI or value["schema"] != document_schema:
         raise ContractError("unsupported document")
 
 
-def validate_artifact(c: Contracts, value: Any) -> None:
+def _validate_skill_artifact(c: Contracts, value: Any) -> None:
     value = exact(value, {"repository", "revision", "path", "sha256"})
     c.ref("repository", value["repository"])
     c.ref("commit", value["revision"])
-    c.ref("relativePath", value["path"])
+    _pr.validate_safe_relative_path(value["path"], c.patterns["relativePath"], "relativePath")
     c.ref("sha256", value["sha256"])
 
 
-def validate_phase(c: Contracts, value: Any) -> None:
+def _validate_agent_phase(c: Contracts, value: Any) -> None:
     value = exact(value, {"consumes", "produces", "requires", "prohibits"})
     for field in ("consumes", "produces", "requires", "prohibits"):
         for item in unique_strings(value[field], 1):
             c.ref("identifier", item)
 
 
-def validate_authority(c: Contracts, value: Any) -> tuple[str, set[str]]:
+def _validate_skill_authority(c: Contracts, value: Any) -> tuple[str, set[str]]:
     value = exact(value, {"mode", "requiredBindings", "whenMissing"})
     mode = enum(
-        value["mode"],
-        {"standing-policy", "digest-bound", "human-decision", "secret-intake"},
+        value["mode"], {"standing-policy", "digest-bound", "human-decision", "secret-intake"}
     )
     bindings = set(unique_strings(value["requiredBindings"], 3))
-    accepted = {
-        "findingDigest",
-        "targetRepository",
-        "exactBaseSha",
-        "catalogDigest",
-        "skillDigest",
-        "policyDigest",
-        "decisionRef",
-    }
-    if not bindings <= accepted:
+    if not bindings <= AUTHORITY_BINDINGS:
         raise ContractError("unknown authority binding")
-    required = {"findingDigest", "targetRepository", "catalogDigest", "skillDigest"}
-    if not required <= bindings:
+    if not {"findingDigest", "targetRepository", "catalogDigest", "skillDigest"} <= bindings:
         raise ContractError("authority is not evidence-bound")
     if mode == "standing-policy" and "policyDigest" not in bindings:
         raise ContractError("standing policy is not digest-bound")
@@ -194,25 +140,8 @@ def validate_authority(c: Contracts, value: Any) -> tuple[str, set[str]]:
 
 
 def validate_definition(c: Contracts, value: Any) -> None:
-    value = exact(
-        value,
-        {
-            "$schema",
-            "schema",
-            "skillId",
-            "version",
-            "title",
-            "description",
-            "match",
-            "routing",
-            "authority",
-            "operation",
-            "agents",
-            "completionCriteria",
-            "llmAuthority",
-        },
-    )
-    validate_header(value, "wellmanifest.skill-definition/v1")
+    value = exact(value, DEFINITION_KEYS)
+    _validate_skill_header(value, "wellmanifest.skill-definition/v1")
     c.ref("skillId", value["skillId"])
     c.ref("semver", value["version"])
     string(value["title"], 3, 160)
@@ -223,10 +152,7 @@ def validate_definition(c: Contracts, value: Any) -> None:
     for code in codes:
         c.ref("diagnosticCode", code)
     classes = unique_strings(match["errorClasses"], 1)
-    accepted_classes = {
-        "availability", "configuration", "integrity", "policy", "security", "state", "unknown"
-    }
-    if not set(classes) <= accepted_classes or not isinstance(match["fallback"], bool):
+    if not set(classes) <= ERROR_CLASSES or not isinstance(match["fallback"], bool):
         raise ContractError("invalid diagnostic match")
     if not match["fallback"] and not codes:
         raise ContractError("non-fallback skill lacks diagnostic code")
@@ -238,13 +164,10 @@ def validate_definition(c: Contracts, value: Any) -> None:
     if dedupe != {"key": "fingerprint", "scope": "target-repository"}:
         raise ContractError("invalid deduplication boundary")
 
-    mode, bindings = validate_authority(c, value["authority"])
+    mode, bindings = _validate_skill_authority(c, value["authority"])
     operation = exact(value["operation"], {"capability", "executor", "effect", "maxChangedFiles"})
     c.ref("identifier", operation["capability"])
-    executor = enum(
-        operation["executor"],
-        {"doctor-agent", "repair-agent", "validator-agent", "skills-agent", "human", "secret-intake"},
-    )
+    executor = enum(operation["executor"], EXECUTORS)
     effect = enum(operation["effect"], {"none", "pull-request"})
     changed = integer(operation["maxChangedFiles"], 0, 1000)
 
@@ -269,20 +192,21 @@ def validate_definition(c: Contracts, value: Any) -> None:
         raise ContractError("agent phase contract missing")
     if set(agents) - {"doctor-agent", "repair-agent", "validator-agent", "skills-agent"}:
         raise ContractError("unknown agent phase")
-    for phase in agents.values():
-        validate_phase(c, phase)
+    for agent_phase in agents.values():
+        _validate_agent_phase(c, agent_phase)
     if effect == "pull-request" and not {"repair-agent", "validator-agent"} <= set(agents):
         raise ContractError("repair skill lacks independent validation phase")
     for criterion in unique_strings(value["completionCriteria"], 1):
         c.ref("identifier", criterion)
     if value["llmAuthority"] != "propose-only":
         raise ContractError("LLM authority is not propose-only")
+    _pr.reject_sensitive_tree(value, allowed_schema_uris={SCHEMA_URI}, check_keys=False)
 
 
-def validate_catalog_entry(c: Contracts, value: Any) -> str:
+def _validate_catalog_entry(c: Contracts, value: Any) -> str:
     value = exact(value, {"skillId", "definition", "safetyClass", "diagnosticCodes"})
     skill_id = c.ref("skillId", value["skillId"])
-    validate_artifact(c, value["definition"])
+    _validate_skill_artifact(c, value["definition"])
     enum(value["safetyClass"], {"routine", *PROTECTED_HUMAN, "secret"})
     for code in unique_strings(value["diagnosticCodes"], 0):
         c.ref("diagnosticCode", code)
@@ -290,37 +214,32 @@ def validate_catalog_entry(c: Contracts, value: Any) -> str:
 
 
 def validate_catalog(c: Contracts, value: Any) -> None:
-    value = exact(value, {"$schema", "schema", "catalogId", "version", "entries", "defaultRoute"})
-    validate_header(value, "wellmanifest.skill-catalog/v1")
+    value = exact(
+        value, {"$schema", "schema", "catalogId", "version", "entries", "defaultRoute"}
+    )
+    _validate_skill_header(value, "wellmanifest.skill-catalog/v1")
     c.ref("identifier", value["catalogId"])
     c.ref("semver", value["version"])
     if not isinstance(value["entries"], list) or not value["entries"]:
         raise ContractError("empty catalog")
-    ids = [validate_catalog_entry(c, entry) for entry in value["entries"]]
+    ids = [_validate_catalog_entry(c, entry) for entry in value["entries"]]
     if len(ids) != len(set(ids)):
         raise ContractError("duplicate catalog skill")
     if value["defaultRoute"] != "block":
         raise ContractError("catalog fallback must block")
+    _pr.reject_sensitive_tree(value, allowed_schema_uris={SCHEMA_URI}, check_keys=False)
 
 
-def validate_finding(c: Contracts, value: Any) -> tuple[str, set[str]]:
-    value = exact(
-        value,
-        {
-            "fingerprint",
-            "targetRepository",
-            "diagnosticCode",
-            "errorClass",
-            "severity",
-            "occurrences",
-            "eligibleSkills",
-            "deterministicPriority",
-        },
-    )
+def _validate_selection_finding(c: Contracts, value: Any) -> tuple[str, set[str]]:
+    keys = {
+        "fingerprint", "targetRepository", "diagnosticCode", "errorClass",
+        "severity", "occurrences", "eligibleSkills", "deterministicPriority",
+    }
+    value = exact(value, keys)
     fingerprint = c.ref("sha256", value["fingerprint"])
     c.ref("repository", value["targetRepository"])
     c.ref("diagnosticCode", value["diagnosticCode"])
-    enum(value["errorClass"], {"availability", "configuration", "integrity", "policy", "security", "state", "unknown"})
+    enum(value["errorClass"], ERROR_CLASSES)
     enum(value["severity"], {"critical", "high", "medium", "low", "info"})
     integer(value["occurrences"], 1, 1000000)
     skills = set(unique_strings(value["eligibleSkills"], 1))
@@ -331,11 +250,12 @@ def validate_finding(c: Contracts, value: Any) -> tuple[str, set[str]]:
 
 
 def validate_selection_request(c: Contracts, value: Any) -> dict[str, set[str]]:
-    value = exact(
-        value,
-        {"$schema", "schema", "requestId", "catalogDigest", "policyDigest", "priorityProfileDigest", "findings"},
-    )
-    validate_header(value, "wellmanifest.skill-selection-request/v1")
+    keys = {
+        "$schema", "schema", "requestId", "catalogDigest",
+        "policyDigest", "priorityProfileDigest", "findings",
+    }
+    value = exact(value, keys)
+    _validate_skill_header(value, "wellmanifest.skill-selection-request/v1")
     c.ref("identifier", value["requestId"])
     for field in ("catalogDigest", "policyDigest", "priorityProfileDigest"):
         c.ref("sha256", value[field])
@@ -344,16 +264,18 @@ def validate_selection_request(c: Contracts, value: Any) -> dict[str, set[str]]:
         raise ContractError("invalid finding batch")
     result: dict[str, set[str]] = {}
     for finding in findings:
-        fingerprint, candidates = validate_finding(c, finding)
+        fingerprint, candidates = _validate_selection_finding(c, finding)
         if fingerprint in result:
             raise ContractError("duplicate finding fingerprint")
         result[fingerprint] = candidates
+    _pr.reject_sensitive_tree(value, allowed_schema_uris={SCHEMA_URI}, check_keys=False)
     return result
 
 
 def validate_selection_proposal(c: Contracts, value: Any) -> list[tuple[str, str]]:
-    value = exact(value, {"$schema", "schema", "catalogDigest", "requestDigest", "effect", "selections"})
-    validate_header(value, "wellmanifest.skill-selection-proposal/v1")
+    keys = {"$schema", "schema", "catalogDigest", "requestDigest", "effect", "selections"}
+    value = exact(value, keys)
+    _validate_skill_header(value, "wellmanifest.skill-selection-proposal/v1")
     c.ref("sha256", value["catalogDigest"])
     c.ref("sha256", value["requestDigest"])
     if value["effect"] != "propose-only":
@@ -361,17 +283,23 @@ def validate_selection_proposal(c: Contracts, value: Any) -> list[tuple[str, str
     selections = value["selections"]
     if not isinstance(selections, list) or len(selections) > 100:
         raise ContractError("invalid selections")
+    reasons = {
+        "blast-radius", "dependency-order", "freshness", "operator-impact", "recurrence"
+    }
     result: list[tuple[str, str]] = []
     for item in selections:
-        item = exact(item, {"fingerprint", "skillId", "priorityAdjustment", "reasonCode", "rationale"})
+        item = exact(
+            item, {"fingerprint", "skillId", "priorityAdjustment", "reasonCode", "rationale"}
+        )
         fingerprint = c.ref("sha256", item["fingerprint"])
         skill_id = c.ref("skillId", item["skillId"])
         integer(item["priorityAdjustment"], -25, 25)
-        enum(item["reasonCode"], {"blast-radius", "dependency-order", "freshness", "operator-impact", "recurrence"})
+        enum(item["reasonCode"], reasons)
         string(item["rationale"], 1, 300)
         result.append((fingerprint, skill_id))
     if len(result) != len(set(result)):
         raise ContractError("duplicate selection")
+    _pr.reject_sensitive_tree(value, allowed_schema_uris={SCHEMA_URI}, check_keys=False)
     return result
 
 
@@ -402,150 +330,17 @@ def validate_pair(c: Contracts, request: Any, proposal: Any) -> None:
             raise ContractError("proposal escaped deterministic candidates")
 
 
-def artifact(path: str = "SKILLS/repository-repair/skill.json") -> dict[str, str]:
-    return {
-        "repository": "subactor/skills-agent",
-        "revision": "a" * 40,
-        "path": path,
-        "sha256": "b" * 64,
-    }
-
-
-def phase(role: str) -> dict[str, list[str]]:
-    return {
-        "consumes": [f"{role}.input"],
-        "produces": [f"{role}.receipt"],
-        "requires": ["evidence.redacted"],
-        "prohibits": ["authority.self-issued"],
-    }
-
-
-def definition_example(safety: str = "routine") -> dict[str, Any]:
-    modes = {
-        "routine": "digest-bound",
-        "stash": "human-decision",
-        "license": "human-decision",
-        "secret": "secret-intake",
-        "ambiguous": "human-decision",
-        "destructive": "human-decision",
-    }
-    bindings = ["findingDigest", "targetRepository", "catalogDigest", "skillDigest"]
-    if modes[safety] in {"human-decision", "secret-intake"}:
-        bindings.append("decisionRef")
-    effect = "pull-request" if safety in {"routine", "license", "ambiguous"} else "none"
-    if effect == "pull-request":
-        bindings.append("exactBaseSha")
-    executor = "repair-agent" if effect == "pull-request" else "human"
-    if safety == "secret":
-        executor = "secret-intake"
-    return {
-        "$schema": SCHEMA_URI,
-        "schema": "wellmanifest.skill-definition/v1",
-        "skillId": f"skill.repository.{safety}-remediation.v1",
-        "version": "1.0.0",
-        "title": f"Governed {safety} remediation",
-        "description": "Route a stable diagnostic through bounded agent phases.",
-        "match": {
-            "diagnosticCodes": [f"DIAGIT-{safety.upper()}-001"],
-            "errorClasses": ["state" if safety == "stash" else "policy"],
-            "fallback": False,
-        },
-        "routing": {
-            "safetyClass": safety,
-            "basePriority": "P2",
-            "deduplication": {"key": "fingerprint", "scope": "target-repository"},
-        },
-        "authority": {"mode": modes[safety], "requiredBindings": bindings, "whenMissing": "block"},
-        "operation": {
-            "capability": f"repository.{safety}.remediate",
-            "executor": executor,
-            "effect": effect,
-            "maxChangedFiles": 3 if effect == "pull-request" else 0,
-        },
-        "agents": {
-            "doctor-agent": phase("doctor"),
-            **({"repair-agent": phase("repair"), "validator-agent": phase("validator")} if effect == "pull-request" else {}),
-            "skills-agent": phase("skills"),
-        },
-        "completionCriteria": ["diagnosis.bound", "authority.verified", "outcome.read-back"],
-        "llmAuthority": "propose-only",
-    }
-
-
-def request_example() -> dict[str, Any]:
-    return {
-        "$schema": SCHEMA_URI,
-        "schema": "wellmanifest.skill-selection-request/v1",
-        "requestId": "selection.batch-001",
-        "catalogDigest": "c" * 64,
-        "policyDigest": "d" * 64,
-        "priorityProfileDigest": "e" * 64,
-        "findings": [
-            {
-                "fingerprint": "f" * 64,
-                "targetRepository": "subactor/platform",
-                "diagnosticCode": "DIAGIT-GIT-008",
-                "errorClass": "state",
-                "severity": "medium",
-                "occurrences": 2,
-                "eligibleSkills": ["skill.repository.stash-remediation.v1"],
-                "deterministicPriority": "P1",
-            }
-        ],
-    }
-
-
-def proposal_example(request: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "$schema": SCHEMA_URI,
-        "schema": "wellmanifest.skill-selection-proposal/v1",
-        "catalogDigest": request["catalogDigest"],
-        "requestDigest": digest(canonical(request)),
-        "effect": "propose-only",
-        "selections": [
-            {
-                "fingerprint": "f" * 64,
-                "skillId": "skill.repository.stash-remediation.v1",
-                "priorityAdjustment": 5,
-                "reasonCode": "operator-impact",
-                "rationale": "Preserve operator-owned workspace state before later work.",
-            }
-        ],
-    }
-
-
-def catalog_example() -> dict[str, Any]:
-    return {
-        "$schema": SCHEMA_URI,
-        "schema": "wellmanifest.skill-catalog/v1",
-        "catalogId": "subactor.repository-remediation",
-        "version": "1.0.0",
-        "entries": [
-            {
-                "skillId": "skill.repository.routine-remediation.v1",
-                "definition": artifact("SKILLS/routine/skill.json"),
-                "safetyClass": "routine",
-                "diagnosticCodes": ["DIAGIT-GIT-001"],
-            }
-        ],
-        "defaultRoute": "block",
-    }
-
-
 def expect_rejected(c: Contracts, value: Any, request: Any | None = None) -> None:
-    try:
-        if request is None:
-            validate_document(c, value)
-        else:
-            validate_pair(c, request, value)
-    except ContractError:
-        return
-    raise ContractError("adversarial fixture accepted")
+    if request is None:
+        _pr.expect_rejected(lambda: validate_document(c, value))
+    else:
+        _pr.expect_rejected(lambda: validate_pair(c, request, value))
 
 
 def run_all(c: Contracts) -> None:
     c.integrity()
-    valid = [definition_example(safety) for safety in ("routine", "stash", "license", "secret", "ambiguous", "destructive")]
+    safeties = ("routine", "stash", "license", "secret", "ambiguous", "destructive")
+    valid = [definition_example(safety) for safety in safeties]
     valid.append(catalog_example())
     request = request_example()
     proposal = proposal_example(request)
@@ -554,52 +349,34 @@ def run_all(c: Contracts) -> None:
         validate_document(c, document)
     validate_pair(c, request, proposal)
 
-    invalid: list[Any] = []
-    bad = definition_example("stash")
-    bad["authority"]["mode"] = "standing-policy"
-    invalid.append(bad)
-    bad = definition_example("license")
-    bad["authority"]["mode"] = "digest-bound"
-    invalid.append(bad)
-    bad = definition_example("secret")
-    bad["operation"] = {"capability": "repository.secret.repair", "executor": "repair-agent", "effect": "pull-request", "maxChangedFiles": 1}
-    bad["authority"]["requiredBindings"].append("exactBaseSha")
-    invalid.append(bad)
-    bad = definition_example("ambiguous")
-    bad["authority"]["requiredBindings"].remove("decisionRef")
-    invalid.append(bad)
-    bad = definition_example("routine")
-    bad["operation"]["shell"] = "ignored"
-    invalid.append(bad)
-    bad = catalog_example()
-    bad["entries"].append(copy.deepcopy(bad["entries"][0]))
-    invalid.append(bad)
-    bad = proposal_example(request)
-    bad["authority"] = "approved"
-    invalid.append(bad)
-    bad = proposal_example(request)
-    bad["selections"][0]["priorityAdjustment"] = 26
-    invalid.append(bad)
-    for document in invalid:
-        expect_rejected(c, document)
-    escaped = proposal_example(request)
-    escaped["selections"][0]["skillId"] = "skill.repository.other-remediation.v1"
-    expect_rejected(c, escaped, request)
-    print(f"PASS: {len(valid)} valid documents, {len(invalid) + 1} adversarial cases")
-    execution_path = Path(__file__).with_name("execution_conformance.py")
-    spec = importlib.util.spec_from_file_location("wellmanifest_execution_conformance", execution_path)
-    if spec is None or spec.loader is None:
-        raise ContractError("execution conformance module is unavailable")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    module.run_all()
+    adversarial = _fx.build_adversarial_skill_cases(
+        lambda doc: validate_document(c, doc),
+        lambda req, prop: validate_pair(c, req, prop),
+        request,
+    )
+    for case in adversarial:
+        _pr.expect_rejected(case)
+    print(f"PASS: {len(valid)} valid documents, {len(adversarial)} adversarial cases")
+
+    execution_mod = _pr.load_sibling_module(
+        __file__, "execution_conformance.py", "wellmanifest_execution_conformance"
+    )
+    execution_mod.run_all()
+    profile_mod = _pr.load_sibling_module(
+        __file__, "operation_profile_conformance.py", "wellmanifest_operation_profile_conformance"
+    )
+    profile_mod.run_all()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--all", action="store_true", help="run bundled positive and adversarial fixtures")
+    parser.add_argument(
+        "--all", action="store_true", help="run bundled positive and adversarial fixtures"
+    )
     parser.add_argument("--file", type=Path, help="validate one JSON document")
-    parser.add_argument("--proposal-with-request", nargs=2, type=Path, metavar=("REQUEST", "PROPOSAL"))
+    parser.add_argument(
+        "--proposal-with-request", nargs=2, type=Path, metavar=("REQUEST", "PROPOSAL")
+    )
     args = parser.parse_args()
     c = Contracts()
     try:
@@ -607,11 +384,11 @@ def main() -> int:
             run_all(c)
         elif args.file:
             c.integrity()
-            validate_document(c, json.loads(args.file.read_text("utf-8")))
+            validate_document(c, _pr.load_strict_json(args.file))
             print("PASS: document conforms")
         elif args.proposal_with_request:
             c.integrity()
-            request, proposal = (json.loads(path.read_text("utf-8")) for path in args.proposal_with_request)
+            request, proposal = (_pr.load_strict_json(p) for p in args.proposal_with_request)
             validate_pair(c, request, proposal)
             print("PASS: proposal is candidate-bound")
         else:

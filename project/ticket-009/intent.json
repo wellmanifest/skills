@@ -1,0 +1,103 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-009",
+  "summary": "Modularize under 500 lines and harden skills conformance validators",
+  "workstream": "integration",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-007/README.md",
+    "project/ticket-008/README.md",
+    "project/ticket-009/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "pyproject.toml",
+    "standard/conformance.py",
+    "standard/execution_conformance.py",
+    "standard/execution_fixtures.py",
+    "standard/operation_profile_conformance.py",
+    "standard/skill_fixtures.py",
+    "standard/skill_primitives.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "56d7e3735bc0c5986299014369130af8d9859a2b",
+    "targetBranch": "main",
+    "outcome": "Modularize wellmanifest/skills conformance modules under 500 lines, centralize shared validation primitives, chain operation_profile_conformance into conformance.py --all, harden JSON/path/RFC3339/secret checks, and add pyproject.toml.",
+    "nonGoals": [
+      "No runtime dependency additions",
+      "No breaking changes to skill.schema.json, skill-execution.schema.json, or skill-operation-profile.schema.json"
+    ],
+    "complexity": "M",
+    "estimatedMinutes": 40,
+    "budgets": {
+      "maxImplementationFiles": 9,
+      "maxAffectedComponents": 3,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 1
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Extract shared JSON/type/path/RFC3339/secret primitives into standard/skill_primitives.py and positive/adversarial fixtures into standard/skill_fixtures.py and standard/execution_fixtures.py while preserving existing CLI entrypoints and chaining all three conformance suites.",
+      "components": [
+        {
+          "name": "skills-conformance",
+          "paths": [
+            "pyproject.toml",
+            "standard/conformance.py",
+            "standard/execution_conformance.py",
+            "standard/execution_fixtures.py",
+            "standard/operation_profile_conformance.py",
+            "standard/skill_fixtures.py",
+            "standard/skill_primitives.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "ruff check standard"
+        ],
+        "evidence": "project/ticket-009/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all",
+          "python3 standard/operation_profile_conformance.py --all"
+        ],
+        "evidence": "project/ticket-009/README.md"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-009/README.md"
+      }
+    ]
+  }
+}
