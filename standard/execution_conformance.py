@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,12 +41,12 @@ validate_error = _ee.validate_error
 
 ROOT = Path(__file__).resolve().parent
 SCHEMA_PATH = ROOT / "skill-execution.schema.json"
-COMMIT = re.compile(r"^[a-f0-9]{40}$")
-SKILL_ID = re.compile(r"^skill\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\.v[1-9][0-9]*$")
-RELATIVE_PATH = re.compile(r"^[A-Za-z0-9._/-]+$")
-ORGANIZATION = re.compile(r"^[A-Za-z0-9_.-]+$")
-BRANCH = re.compile(r"^[A-Za-z0-9._/-]+$")
-DIAGNOSTIC_ID = re.compile(r"^DIAGIT-[A-Z0-9]+-[0-9]{3}$")
+COMMIT = _pr.COMMIT
+SKILL_ID = _pr.SKILL_ID
+RELATIVE_PATH = _pr.RELATIVE_PATH
+ORGANIZATION = _pr.ORGANIZATION
+BRANCH = _pr.RELATIVE_PATH
+DIAGNOSTIC_ID = _pr.DIAGNOSTIC_ID
 
 PLAN_KEYS = {
     "$schema", "schema", "planId", "correlationId", "operationId", "skillId", "executionMode",

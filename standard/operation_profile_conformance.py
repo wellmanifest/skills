@@ -6,13 +6,17 @@ from __future__ import annotations
 import argparse
 import copy
 import json
-import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 try:
     from standard.skill_primitives import (
+        COMMIT,
+        IDENTIFIER,
+        RELATIVE_PATH,
+        REPOSITORY,
+        SHA256,
         ContractError,
         assert_closed_schema,
         exact,
@@ -26,7 +30,12 @@ try:
         validate_safe_repository,
     )
 except ImportError:
-    from skill_primitives import (
+    from skill_primitives import (  # type: ignore[no-redef]
+        COMMIT,
+        IDENTIFIER,
+        RELATIVE_PATH,
+        REPOSITORY,
+        SHA256,
         ContractError,
         assert_closed_schema,
         exact,
@@ -55,11 +64,6 @@ ARTIFACTS = {
         "7ac49adfb92dac1d03e10efb382290e0e08c367b5ec655933d12db30803dbe2c",
     ),
 }
-IDENTIFIER = re.compile(r"^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*$")
-COMMIT = re.compile(r"^[a-f0-9]{40}$")
-SHA256 = re.compile(r"^[a-f0-9]{64}$")
-REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-RELATIVE_PATH = re.compile(r"^[A-Za-z0-9._/-]+$")
 
 
 def unique_identifiers(value: Any, minimum: int, maximum: int = 12) -> list[str]:

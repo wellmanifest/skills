@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -66,7 +65,9 @@ class Contracts:
             "identifier", "skillId", "semver", "sha256", "commit",
             "repository", "relativePath", "diagnosticCode",
         )
-        self.patterns = {name: re.compile(defs[name]["pattern"]) for name in names}
+        self.patterns = {
+            name: _pr.compile_anchored_pattern(defs[name]["pattern"]) for name in names
+        }
         self.max_lengths: dict[str, int | None] = {
             name: defs[name].get("maxLength") for name in names
         }

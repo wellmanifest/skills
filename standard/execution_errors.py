@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
@@ -33,13 +32,11 @@ ERROR_CLASSES = {
     "state",
     "unknown",
 }
-SHA256 = re.compile(r"^[a-f0-9]{64}$")
-IDENTIFIER = re.compile(r"^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*$")
-REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-REFERENCE = re.compile(
-    r"^(?:agent|artifact|diagit|evidence|error|grant|policy|profile|receipt)://[A-Za-z0-9._:/-]+$"
-)
-DIAGNOSTIC_CODE = re.compile(r"^[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)*$")
+SHA256 = _pr.SHA256
+IDENTIFIER = _pr.IDENTIFIER
+REPOSITORY = _pr.REPOSITORY
+REFERENCE = _pr.REFERENCE
+DIAGNOSTIC_CODE = _pr.DIAGNOSTIC_CODE
 
 ERROR_KEYS = {
     "$schema",
