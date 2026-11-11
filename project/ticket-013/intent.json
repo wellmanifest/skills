@@ -1,0 +1,101 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-013",
+  "summary": "Harden skills regular-file inode checks, reference delimiters, and regex anchors",
+  "workstream": "integration",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-012/README.md",
+    "project/ticket-013/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "standard/conformance.py",
+    "standard/execution_conformance.py",
+    "standard/execution_errors.py",
+    "standard/operation_profile_conformance.py",
+    "standard/skill_primitives.py",
+    "standard/test_skills_hardening.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "f845968a47a2df927b6307bdffa8b5f133a54b83",
+    "targetBranch": "main",
+    "outcome": "Enforce lstat+fstat (st_dev, st_ino) regular-file identity, relative ancestor symlink rejection, and max_bytes integer bounds in read_regular_utf8; harden validate_safe_reference against backslash/query/fragment and colon-delimited dot-dot segments; centralize and anchor all regexes with \\A...\\Z across skill_primitives.py, conformance.py, execution_errors.py, execution_conformance.py, and operation_profile_conformance.py; expand test_skills_hardening.py; and close merged ticket-012.",
+    "nonGoals": [
+      "No runtime dependency additions",
+      "No breaking changes to skill.schema.json, skill-execution.schema.json, or skill-operation-profile.schema.json"
+    ],
+    "complexity": "M",
+    "estimatedMinutes": 35,
+    "budgets": {
+      "maxImplementationFiles": 8,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Centralize \\A...\\Z-anchored regex patterns and compile_anchored_pattern in standard/skill_primitives.py, enforce pre-open lstat and post-open fstat inode identity plus relative ancestor symlink guards in read_regular_utf8, tighten colon/query/fragment/backslash checks in validate_safe_reference, and deduplicate regex constants across conformance modules.",
+      "components": [
+        {
+          "name": "skills-conformance",
+          "paths": [
+            "standard/conformance.py",
+            "standard/execution_conformance.py",
+            "standard/execution_errors.py",
+            "standard/operation_profile_conformance.py",
+            "standard/skill_primitives.py",
+            "standard/test_skills_hardening.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "pytest -q",
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all",
+          "python3 standard/operation_profile_conformance.py --all"
+        ],
+        "evidence": "project/ticket-013/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "ruff check standard tests"
+        ],
+        "evidence": "project/ticket-013/README.md"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-013/README.md"
+      }
+    ]
+  }
+}

@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import errno
 import hashlib
 import importlib.util
 import json
@@ -37,12 +36,33 @@ SENSITIVE_KEY_PARTS = (
     "argv",
 )
 RFC3339_TIMESTAMP = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$"
+    r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})\Z"
 )
+COMMIT = re.compile(r"\A[a-f0-9]{40}\Z")
+SHA256 = re.compile(r"\A[a-f0-9]{64}\Z")
+IDENTIFIER = re.compile(r"\A[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*\Z")
+SKILL_ID = re.compile(r"\Askill\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\.v[1-9][0-9]*\Z")
+REPOSITORY = re.compile(r"\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
+RELATIVE_PATH = re.compile(r"\A[A-Za-z0-9._/-]+\Z")
+ORGANIZATION = re.compile(r"\A[A-Za-z0-9_.-]+\Z")
+REFERENCE = re.compile(
+    r"\A(?:agent|artifact|diagit|evidence|error|grant|policy|profile|receipt)://[A-Za-z0-9._:/-]+\Z"
+)
+DIAGNOSTIC_CODE = re.compile(r"\A[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)*\Z")
+DIAGNOSTIC_ID = re.compile(r"\ADIAGIT-[A-Z0-9]+-[0-9]{3}\Z")
 
 
 class ContractError(ValueError):
     """A bounded conformance failure that does not echo untrusted content."""
+
+
+def compile_anchored_pattern(raw: str) -> re.Pattern[str]:
+    if not isinstance(raw, str) or not raw:
+        raise ContractError("invalid regex pattern")
+    body = raw[1:] if raw.startswith("^") else raw
+    if body.endswith("$") and not body.endswith(r"\$"):
+        body = body[:-1]
+    return re.compile(rf"\A(?:{body})\Z")
 
 
 def _unique_object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -110,30 +130,57 @@ def strict_loads(raw: str) -> Any:
     return parsed
 
 
+def _reject_relative_ancestor_symlinks(path: Path) -> None:
+    if path.is_absolute():
+        return
+    cur = Path()
+    for part in path.parts[:-1]:
+        if part in ("", "."):
+            continue
+        cur = cur / part
+        try:
+            st = os.lstat(cur)
+        except OSError as exc:
+            raise ContractError("input path ancestor cannot be opened") from exc
+        if stat.S_ISLNK(st.st_mode):
+            raise ContractError("refusing symlink ancestor")
+
+
 def read_regular_utf8(path: Path, max_bytes: int = MAX_JSON_BYTES) -> str:
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes < 1:
+        raise ContractError("invalid maximum byte size")
+    if not isinstance(path, (Path, str)):
+        raise ContractError("invalid input path")
+    candidate = path if isinstance(path, Path) else Path(path)
+    _reject_relative_ancestor_symlinks(candidate)
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
-        fd = os.open(path, flags)
+        lst = os.lstat(candidate)
+        if not stat.S_ISREG(lst.st_mode):
+            raise ContractError("refusing non-regular file input")
+        fd = os.open(candidate, flags)
     except OSError as exc:
-        if exc.errno in {errno.ELOOP, errno.ENOTDIR, errno.EISDIR}:
-            raise ContractError("refusing symlink or directory input") from exc
-        raise
+        raise ContractError("input file cannot be opened") from exc
     try:
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode):
             raise ContractError("input path must be a regular file")
+        if (lst.st_dev, lst.st_ino) != (info.st_dev, info.st_ino):
+            raise ContractError("input file identity changed during open")
         if info.st_size > max_bytes:
             raise ContractError("input file exceeds maximum size")
         chunks: list[bytes] = []
         total = 0
         while True:
-            chunk = os.read(fd, 65536)
+            chunk = os.read(fd, min(65536, max_bytes + 1 - total))
             if not chunk:
                 break
             total += len(chunk)
             if total > max_bytes:
                 raise ContractError("input file exceeds maximum size")
             chunks.append(chunk)
+    except OSError as exc:
+        raise ContractError("input file cannot be read") from exc
     finally:
         os.close(fd)
     try:
@@ -142,8 +189,8 @@ def read_regular_utf8(path: Path, max_bytes: int = MAX_JSON_BYTES) -> str:
         raise ContractError("input file must be valid UTF-8") from exc
 
 
-def load_strict_json(path: Path) -> Any:
-    return strict_loads(read_regular_utf8(path))
+def load_strict_json(path: Path, max_bytes: int = MAX_JSON_BYTES) -> Any:
+    return strict_loads(read_regular_utf8(path, max_bytes=max_bytes))
 
 
 def canonical(value: Any) -> str:
@@ -261,8 +308,9 @@ def validate_safe_repository(
 def validate_safe_reference(
     value: Any, pattern: re.Pattern[str], label: str = "reference", maximum: int = 320
 ) -> str:
-    if isinstance(value, str) and any(
-        ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in value
+    if isinstance(value, str) and (
+        any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in value)
+        or any(ch in value for ch in ("\\", "?", "#"))
     ):
         raise ContractError(f"invalid {label}")
     ref = pattern_text(value, pattern, label, maximum)
@@ -270,12 +318,13 @@ def validate_safe_reference(
     if (
         not sep
         or not remainder
-        or remainder.startswith("/")
-        or remainder.endswith("/")
+        or remainder[0] in {"/", ":"}
+        or remainder[-1] in {"/", ":"}
         or "//" in remainder
+        or "::" in remainder
     ):
         raise ContractError(f"invalid {label}")
-    if any(segment in {"", ".", ".."} for segment in remainder.split("/")):
+    if any(segment in {"", ".", ".."} for segment in re.split(r"[/:]", remainder)):
         raise ContractError(f"invalid {label}")
     return ref
 
