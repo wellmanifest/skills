@@ -67,11 +67,19 @@ class Contracts:
             "repository", "relativePath", "diagnosticCode",
         )
         self.patterns = {name: re.compile(defs[name]["pattern"]) for name in names}
+        self.max_lengths: dict[str, int | None] = {
+            name: defs[name].get("maxLength") for name in names
+        }
 
     def ref(self, name: str, value: Any) -> str:
         if name == "repository":
             return _pr.validate_safe_repository(value, self.patterns["repository"], "repository")
-        if not isinstance(value, str) or self.patterns[name].fullmatch(value) is None:
+        max_len = self.max_lengths.get(name)
+        if (
+            not isinstance(value, str)
+            or (max_len is not None and len(value) > max_len)
+            or self.patterns[name].fullmatch(value) is None
+        ):
             raise ContractError(f"invalid {name}")
         return value
 
