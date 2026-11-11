@@ -17,6 +17,7 @@ from typing import Any
 
 MAX_JSON_BYTES = 4 * 1024 * 1024
 MAX_JSON_DEPTH = 64
+WINDOWS_DRIVE_PREFIX = re.compile(r"\A[A-Za-z]:")
 
 EXECUTABLE_OR_SECRET_TEXT = re.compile(
     r"(?:https?://|bearer\s|-----BEGIN|\b(?:ba)?sh\s+-c\b|\bgit\s+(?:merge|push|reset)\b|"
@@ -94,6 +95,13 @@ def _check_finite_number(value: int | float) -> None:
         raise ContractError("non-finite JSON number is forbidden")
 
 
+def _check_utf8_str(value: str) -> None:
+    try:
+        value.encode("utf-8", errors="strict")
+    except UnicodeEncodeError as exc:
+        raise ContractError("lone UTF-16 surrogate is forbidden") from exc
+
+
 def assert_json_depth(value: Any, max_depth: int = MAX_JSON_DEPTH) -> None:
     stack: list[tuple[Any, int]] = [(value, 0)]
     while stack:
@@ -104,10 +112,13 @@ def assert_json_depth(value: Any, max_depth: int = MAX_JSON_DEPTH) -> None:
             for key, child in current.items():
                 if not isinstance(key, str):
                     raise ContractError("expected string object keys")
+                _check_utf8_str(key)
                 stack.append((child, depth + 1))
         elif isinstance(current, list):
             for child in current:
                 stack.append((child, depth + 1))
+        elif isinstance(current, str):
+            _check_utf8_str(current)
         elif isinstance(current, (int, float)) and not isinstance(current, bool):
             _check_finite_number(current)
 
@@ -115,6 +126,7 @@ def assert_json_depth(value: Any, max_depth: int = MAX_JSON_DEPTH) -> None:
 def strict_loads(raw: str) -> Any:
     if not isinstance(raw, str):
         raise ContractError("expected JSON text")
+    _check_utf8_str(raw)
     if len(raw.encode("utf-8")) > MAX_JSON_BYTES:
         raise ContractError("JSON input exceeds maximum size")
     try:
@@ -124,14 +136,23 @@ def strict_loads(raw: str) -> Any:
             parse_constant=_reject_json_constant,
             parse_float=_parse_finite_float,
         )
-    except (json.JSONDecodeError, RecursionError) as exc:
+    except (json.JSONDecodeError, RecursionError, ValueError) as exc:
         raise ContractError("invalid or excessively nested JSON") from exc
     assert_json_depth(parsed)
     return parsed
 
 
-def _reject_relative_ancestor_symlinks(path: Path) -> None:
+def _reject_ancestor_symlinks(path: Path) -> None:
     if path.is_absolute():
+        for anc in path.parents:
+            if len(anc.parts) <= 2:
+                break
+            try:
+                st = os.lstat(anc)
+            except OSError as exc:
+                raise ContractError("input path ancestor cannot be opened") from exc
+            if stat.S_ISLNK(st.st_mode):
+                raise ContractError("refusing symlink ancestor")
         return
     cur = Path()
     for part in path.parts[:-1]:
@@ -152,7 +173,7 @@ def read_regular_utf8(path: Path, max_bytes: int = MAX_JSON_BYTES) -> str:
     if not isinstance(path, (Path, str)):
         raise ContractError("invalid input path")
     candidate = path if isinstance(path, Path) else Path(path)
-    _reject_relative_ancestor_symlinks(candidate)
+    _reject_ancestor_symlinks(candidate)
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
         lst = os.lstat(candidate)
@@ -208,6 +229,9 @@ def canonical(value: Any) -> str:
 
 
 def sha256_text(value: str) -> str:
+    if not isinstance(value, str):
+        raise ContractError("expected text")
+    _check_utf8_str(value)
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
@@ -232,6 +256,7 @@ def exact(value: Any, required: set[str], optional: set[str] | None = None) -> d
 def bounded_text(value: Any, minimum: int = 1, maximum: int = 1000) -> str:
     if not isinstance(value, str) or not minimum <= len(value) <= maximum:
         raise ContractError("invalid string")
+    _check_utf8_str(value)
     if EXECUTABLE_OR_SECRET_TEXT.search(value):
         raise ContractError("executable, remote or secret text is forbidden")
     return value
@@ -245,6 +270,7 @@ def pattern_text(value: Any, pattern: re.Pattern[str], label: str, maximum: int 
         or pattern.fullmatch(value) is None
     ):
         raise ContractError(f"invalid {label}")
+    _check_utf8_str(value)
     return value
 
 
@@ -277,6 +303,8 @@ def unique_strings(value: Any, minimum: int, maximum: int = 100) -> list[str]:
 def validate_safe_relative_path(
     value: Any, pattern: re.Pattern[str], label: str = "relative path", maximum: int = 300
 ) -> str:
+    if isinstance(value, str) and WINDOWS_DRIVE_PREFIX.match(value):
+        raise ContractError(f"invalid {label}")
     text = pattern_text(value, pattern, label, maximum)
     if text.startswith("/") or text.endswith("/") or "\\" in text or "//" in text:
         raise ContractError(f"invalid {label}")
@@ -357,6 +385,9 @@ def reject_sensitive_tree(
             for key, child in current.items():
                 if not isinstance(key, str):
                     raise ContractError("expected string object keys")
+                _check_utf8_str(key)
+                if EXECUTABLE_OR_SECRET_TEXT.search(key):
+                    raise ContractError("document key contains executable, remote or secret text")
                 if key == "secretMaterialIncluded" and child is False:
                     continue
                 if check_keys:
@@ -370,8 +401,9 @@ def reject_sensitive_tree(
         elif isinstance(current, list):
             for child in current:
                 stack.append((child, False, depth + 1))
-        elif isinstance(current, str) and not allow_schema:
-            if EXECUTABLE_OR_SECRET_TEXT.search(current):
+        elif isinstance(current, str):
+            _check_utf8_str(current)
+            if not allow_schema and EXECUTABLE_OR_SECRET_TEXT.search(current):
                 raise ContractError("document contains executable, remote or secret text")
         elif isinstance(current, float) and not math.isfinite(current):
             raise ContractError("non-finite JSON number is forbidden")
