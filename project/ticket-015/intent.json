@@ -1,0 +1,97 @@
+{
+  "allowedPaths": [
+    "project/ticket-014/README.md",
+    "project/ticket-015/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "standard/conformance.py",
+    "standard/skill_io.py",
+    "standard/skill_primitives.py",
+    "standard/test_skills_hardening.py"
+  ],
+  "classification": {
+    "kind": "BUG",
+    "origin": "health",
+    "priority": "P1"
+  },
+  "conflictsWith": [],
+  "delivery": {
+    "acceptedBaseSha": "fdab7996e10f8af0bfd7d3d07c7ee55c6d9bcef9",
+    "architecture": {
+      "components": [
+        {
+          "name": "skills-conformance",
+          "paths": [
+            "standard/conformance.py",
+            "standard/skill_io.py",
+            "standard/skill_primitives.py",
+            "standard/test_skills_hardening.py"
+          ]
+        }
+      ],
+      "dataChanges": [],
+      "decision": "Extract bounded regular-file UTF-8 I/O, strict JSON parsing, canonical digesting, and secret-tree checks into standard/skill_io.py, harden relative and un-normalized absolute symlink-parent traversal checks, bound JSON integer digits before int() conversion, enforce integer-overflow checks in reject_sensitive_tree, reject forbidden ASCII control characters in bounded_text and definition title, and mark merged ticket-014 DONE.",
+      "interfaceChanges": [],
+      "responsibilityChanges": false,
+      "rollback": "Revert the ticket branch commit via protected PR delivery.",
+      "status": "accepted",
+      "ui": {
+        "evidence": [],
+        "impact": "none",
+        "states": []
+      }
+    },
+    "budgets": {
+      "maxAffectedComponents": 1,
+      "maxImplementationFiles": 5,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "complexity": "S",
+    "estimatedMinutes": 20,
+    "nonGoals": [
+      "No runtime dependency additions",
+      "No breaking changes to skill JSON schemas"
+    ],
+    "outcome": "All standard/*.py and tests/*.py modules stay well below 500 lines with hardened symlink-parent, JSON integer digit/overflow, and control-character checks, and merged ticket-014 reconciled.",
+    "runtimeDependencies": [],
+    "targetBranch": "main",
+    "validation": [
+      {
+        "commands": [
+          "pytest -q",
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all",
+          "python3 standard/operation_profile_conformance.py --all"
+        ],
+        "criterion": "AC-01",
+        "evidence": "project/ticket-015/README.md"
+      },
+      {
+        "commands": [
+          "ruff check --no-cache standard tests"
+        ],
+        "criterion": "AC-02",
+        "evidence": "project/ticket-015/README.md"
+      },
+      {
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "criterion": "AC-03",
+        "evidence": "project/ticket-015/README.md"
+      }
+    ]
+  },
+  "dependsOn": [],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "integrationTicket": null,
+  "schema": "new-project.intent/v3",
+  "stacks": [],
+  "summary": "Modularize skill_io and harden symlink traversal, JSON bounds, and control-char checks",
+  "ticket": "ticket-015",
+  "workstream": "integration"
+}
