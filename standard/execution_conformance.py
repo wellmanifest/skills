@@ -12,9 +12,11 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from standard import execution_errors as _ee
     from standard import execution_fixtures as _efx
     from standard import skill_primitives as _pr
 except ImportError:
+    import execution_errors as _ee  # type: ignore[no-redef]
     import execution_fixtures as _efx  # type: ignore[no-redef]
     import skill_primitives as _pr  # type: ignore[no-redef]
 
@@ -28,26 +30,24 @@ SCHEMA_URI, OPERATIONS, BASE_BINDINGS = (
 plan_digest, idempotency_digest = _efx.plan_digest, _efx.idempotency_digest
 artifact, plan_example, grant_example = _efx.artifact, _efx.plan_example, _efx.grant_example
 receipt_example, error_example = _efx.receipt_example, _efx.error_example
+ERRORS_PATH, ERROR_CLASSES = _ee.ERRORS_PATH, _ee.ERROR_CLASSES
+SHA256, IDENTIFIER, REPOSITORY = _ee.SHA256, _ee.IDENTIFIER, _ee.REPOSITORY
+REFERENCE, DIAGNOSTIC_CODE = _ee.REFERENCE, _ee.DIAGNOSTIC_CODE
+ERROR_KEYS, REQUIRED_BOOTSTRAP_ERRORS = _ee.ERROR_KEYS, _ee.REQUIRED_BOOTSTRAP_ERRORS
+reject_sensitive = _ee.reject_sensitive
+_validate_exec_header = _ee.validate_exec_header
+validate_error_catalog = _ee.validate_error_catalog
+load_error_catalog = _ee.load_error_catalog
+validate_error = _ee.validate_error
 
 ROOT = Path(__file__).resolve().parent
 SCHEMA_PATH = ROOT / "skill-execution.schema.json"
-ERRORS_PATH = ROOT / "skill-execution.errors.json"
-ERROR_CLASSES = {
-    "availability", "configuration", "integrity", "policy", "security", "state", "unknown"
-}
-SHA256 = re.compile(r"^[a-f0-9]{64}$")
 COMMIT = re.compile(r"^[a-f0-9]{40}$")
-IDENTIFIER = re.compile(r"^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*$")
 SKILL_ID = re.compile(r"^skill\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\.v[1-9][0-9]*$")
-REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-REFERENCE = re.compile(
-    r"^(?:agent|artifact|diagit|evidence|error|grant|policy|profile|receipt)://[A-Za-z0-9._:/-]+$"
-)
 RELATIVE_PATH = re.compile(r"^[A-Za-z0-9._/-]+$")
 ORGANIZATION = re.compile(r"^[A-Za-z0-9_.-]+$")
 BRANCH = re.compile(r"^[A-Za-z0-9._/-]+$")
 DIAGNOSTIC_ID = re.compile(r"^DIAGIT-[A-Z0-9]+-[0-9]{3}$")
-DIAGNOSTIC_CODE = re.compile(r"^[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)*$")
 
 PLAN_KEYS = {
     "$schema", "schema", "planId", "correlationId", "operationId", "skillId", "executionMode",
@@ -64,32 +64,11 @@ RECEIPT_KEYS = {
     "targetRepository", "status", "headSha", "evidenceRefs", "validation", "eql", "rollback",
     "terminal", "secretMaterialIncluded",
 }
-ERROR_KEYS = {
-    "$schema", "schema", "errorId", "code", "errorRef", "errorClass", "phase", "retryable",
-    "correlationId", "planDigest", "targetRepository", "evidenceRefs", "terminal",
-    "secretMaterialIncluded",
-}
-REQUIRED_BOOTSTRAP_ERRORS = {
-    "SKILL-EXEC-VALIDATION-RECEIPT-MISMATCH",
-    "SKILL-EXEC-VALIDATION-TRANSPORT-UNTRUSTED",
-    "SKILL-EXEC-FOLLOWUP-ORDER-MISMATCH",
-    "SKILL-EXEC-FOLLOWUP-INCOMPLETE",
-    "SKILL-EXEC-PROFILE-NOT-READY",
-}
-
-
-def reject_sensitive(value: Any) -> None:
-    _pr.reject_sensitive_tree(value, allowed_schema_uris={SCHEMA_URI}, check_keys=True)
-
-
-def _validate_exec_header(value: dict[str, Any], schema: str) -> None:
-    if value["$schema"] != SCHEMA_URI or value["schema"] != schema:
-        raise ContractError("unsupported document header")
 
 
 def _validate_exec_artifact(value: Any) -> None:
     value = exact(value, {"repository", "revision", "path", "sha256"})
-    text(value["repository"], REPOSITORY, "artifact repository", 200)
+    _pr.validate_safe_repository(value["repository"], REPOSITORY, "artifact repository", 200)
     text(value["revision"], COMMIT, "artifact revision", 40)
     _pr.validate_safe_relative_path(value["path"], RELATIVE_PATH, "artifact path", 300)
     text(value["sha256"], SHA256, "artifact digest", 64)
@@ -100,8 +79,12 @@ def _validate_target(value: Any) -> dict[str, Any]:
         "organization", "repository", "visibility", "baseBranch", "baseSha", "desiredStateDigest"
     }
     value = exact(value, keys)
-    organization = text(value["organization"], ORGANIZATION, "organization", 100)
-    repository = text(value["repository"], REPOSITORY, "target repository", 200)
+    organization = _pr.validate_safe_organization(
+        value["organization"], ORGANIZATION, "organization", 100
+    )
+    repository = _pr.validate_safe_repository(
+        value["repository"], REPOSITORY, "target repository", 200
+    )
     if repository.split("/", 1)[0].lower() != organization.lower():
         raise ContractError("organization differs from repository owner")
     enumeration(value["visibility"], {"private", "internal", "public"}, "visibility")
@@ -140,7 +123,9 @@ def _validate_effect(value: Any) -> dict[str, Any]:
         raise ContractError("only pull-request effects may change repository files")
     for check in unique_strings(value["validationChecks"], 1, 20):
         text(check, IDENTIFIER, "validation check", 160)
-    profile = text(value["rollbackProfileRef"], REFERENCE, "rollback profile", 320)
+    profile = _pr.validate_safe_reference(
+        value["rollbackProfileRef"], REFERENCE, "rollback profile", 320
+    )
     if not profile.startswith("profile://"):
         raise ContractError("rollback profile must use profile://")
     return value
@@ -189,7 +174,7 @@ def validate_plan(value: Any) -> dict[str, Any]:
 def validate_grant(value: Any) -> dict[str, Any]:
     value = exact(value, GRANT_KEYS)
     _validate_exec_header(value, "wellmanifest.skill-grant-binding/v1")
-    grant_ref = text(value["grantRef"], REFERENCE, "grant reference", 320)
+    grant_ref = _pr.validate_safe_reference(value["grantRef"], REFERENCE, "grant reference", 320)
     if not grant_ref.startswith("grant://"):
         raise ContractError("grant reference must use grant://")
     digest_fields = (
@@ -206,10 +191,12 @@ def validate_grant(value: Any) -> dict[str, Any]:
         raise ContractError("grant operation binding mismatch")
     if value["authorizedEffect"] == "none":
         raise ContractError("grant cannot authorize a non-effect")
-    text(value["targetRepository"], REPOSITORY, "target repository", 200)
+    _pr.validate_safe_repository(value["targetRepository"], REPOSITORY, "target repository", 200)
     if value["baseSha"] is not None:
         text(value["baseSha"], COMMIT, "base SHA", 40)
-    issuer = text(value["issuedByRef"], REFERENCE, "issuer reference", 320)
+    issuer = _pr.validate_safe_reference(
+        value["issuedByRef"], REFERENCE, "issuer reference", 320
+    )
     if not issuer.startswith("agent://"):
         raise ContractError("grant issuer must be an external agent reference")
     _pr.parse_rfc3339_utc(value["expiresAt"], "grant expiry")
@@ -249,39 +236,43 @@ def validate_grant_pair(
 def _validate_validation(value: Any) -> dict[str, Any]:
     keys = {"validatorRef", "subjectDigest", "exactHeadSha", "outcome", "evidenceRef"}
     value = exact(value, keys)
-    validator = text(value["validatorRef"], REFERENCE, "validator reference", 320)
+    validator = _pr.validate_safe_reference(
+        value["validatorRef"], REFERENCE, "validator reference", 320
+    )
     if not validator.startswith("agent://"):
         raise ContractError("validator must be an agent reference")
     text(value["subjectDigest"], SHA256, "validation subject", 64)
     if value["exactHeadSha"] is not None:
         text(value["exactHeadSha"], COMMIT, "validated head", 40)
     enumeration(value["outcome"], {"approved", "rejected"}, "validation outcome")
-    text(value["evidenceRef"], REFERENCE, "validation evidence", 320)
+    _pr.validate_safe_reference(value["evidenceRef"], REFERENCE, "validation evidence", 320)
     return value
 
 
 def validate_receipt(value: Any) -> dict[str, Any]:
     value = exact(value, RECEIPT_KEYS)
     _validate_exec_header(value, "wellmanifest.skill-terminal-receipt/v1")
-    receipt_ref = text(value["receiptId"], REFERENCE, "receipt id", 320)
+    receipt_ref = _pr.validate_safe_reference(value["receiptId"], REFERENCE, "receipt id", 320)
     if not receipt_ref.startswith("receipt://"):
         raise ContractError("receipt id must use receipt://")
     text(value["planDigest"], SHA256, "plan digest", 64)
     if (value["grantRef"] is None) != (value["grantDigest"] is None):
         raise ContractError("grant receipt bindings must be both present or absent")
     if value["grantRef"] is not None:
-        grant_ref = text(value["grantRef"], REFERENCE, "grant reference", 320)
+        grant_ref = _pr.validate_safe_reference(
+            value["grantRef"], REFERENCE, "grant reference", 320
+        )
         if not grant_ref.startswith("grant://"):
             raise ContractError("receipt grant reference must use grant://")
         text(value["grantDigest"], SHA256, "grant digest", 64)
     enumeration(value["operationId"], set(OPERATIONS), "operation")
-    text(value["targetRepository"], REPOSITORY, "target repository", 200)
+    _pr.validate_safe_repository(value["targetRepository"], REPOSITORY, "target repository", 200)
     statuses = {"planned", "succeeded", "blocked", "failed", "rolled-back"}
     status = enumeration(value["status"], statuses, "receipt status")
     if value["headSha"] is not None:
         text(value["headSha"], COMMIT, "receipt head", 40)
     for reference in unique_strings(value["evidenceRefs"], 1, 50):
-        text(reference, REFERENCE, "evidence reference", 320)
+        _pr.validate_safe_reference(reference, REFERENCE, "evidence reference", 320)
     validation = None if value["validation"] is None else _validate_validation(value["validation"])
     eql = exact(value["eql"], {"expectationId", "outcome", "evidenceRef"})
     text(eql["expectationId"], IDENTIFIER, "EQL expectation", 160)
@@ -289,9 +280,11 @@ def validate_receipt(value: Any) -> dict[str, Any]:
     if (eql["evidenceRef"] is None) != (eql_outcome == "not-run"):
         raise ContractError("EQL evidence and outcome disagree")
     if eql["evidenceRef"] is not None:
-        text(eql["evidenceRef"], REFERENCE, "EQL evidence", 320)
+        _pr.validate_safe_reference(eql["evidenceRef"], REFERENCE, "EQL evidence", 320)
     rollback = exact(value["rollback"], {"profileRef", "status", "evidenceRef"})
-    profile = text(rollback["profileRef"], REFERENCE, "rollback profile", 320)
+    profile = _pr.validate_safe_reference(
+        rollback["profileRef"], REFERENCE, "rollback profile", 320
+    )
     if not profile.startswith("profile://"):
         raise ContractError("rollback profile must use profile://")
     rb_statuses = {"not-needed", "available", "executed", "failed"}
@@ -299,7 +292,7 @@ def validate_receipt(value: Any) -> dict[str, Any]:
     if (rollback["evidenceRef"] is None) != (rollback_status in {"not-needed", "available"}):
         raise ContractError("rollback evidence and status disagree")
     if rollback["evidenceRef"] is not None:
-        text(rollback["evidenceRef"], REFERENCE, "rollback evidence", 320)
+        _pr.validate_safe_reference(rollback["evidenceRef"], REFERENCE, "rollback evidence", 320)
     boolean(value["terminal"], True)
     boolean(value["secretMaterialIncluded"], False)
     if status == "planned" and (
@@ -344,63 +337,6 @@ def validate_receipt_pair(
             raise ContractError("pull-request receipt lacks exact-head validation")
 
 
-def validate_error_catalog(value: Any) -> dict[str, dict[str, Any]]:
-    value = exact(value, {"schema", "errors"})
-    if value["schema"] != "wellmanifest.skill-execution-error-registry/v1":
-        raise ContractError("unknown error registry")
-    if not isinstance(value["errors"], list) or not value["errors"]:
-        raise ContractError("empty error registry")
-    reactions = {"block", "refresh-plan", "request-grant", "rollback", "redact-and-escalate"}
-    item_keys = {"code", "errorRef", "errorClass", "retryable", "reaction", "resolution"}
-    catalog: dict[str, dict[str, Any]] = {}
-    for item in value["errors"]:
-        item = exact(item, item_keys)
-        code = text(item["code"], DIAGNOSTIC_CODE, "error code", 80)
-        reference = text(item["errorRef"], REFERENCE, "error reference", 320)
-        if reference != f"error://wellmanifest.skills/{code}":
-            raise ContractError("non-canonical error reference")
-        enumeration(item["errorClass"], ERROR_CLASSES, "error class")
-        boolean(item["retryable"])
-        enumeration(item["reaction"], reactions, "error reaction")
-        text(item["resolution"], IDENTIFIER, "error resolution", 160)
-        if code in catalog:
-            raise ContractError("duplicate error code")
-        catalog[code] = item
-    missing = REQUIRED_BOOTSTRAP_ERRORS - set(catalog)
-    if missing:
-        joined = ", ".join(sorted(missing))
-        raise ContractError(f"error registry omits required bootstrap follow-up errors: {joined}")
-    return catalog
-
-
-def load_error_catalog() -> dict[str, dict[str, Any]]:
-    return validate_error_catalog(_pr.load_strict_json(ERRORS_PATH))
-
-
-def validate_error(value: Any) -> dict[str, Any]:
-    value = exact(value, ERROR_KEYS)
-    _validate_exec_header(value, "wellmanifest.skill-execution-error/v1")
-    text(value["errorId"], IDENTIFIER, "error id", 160)
-    text(value["correlationId"], IDENTIFIER, "correlation id", 160)
-    if value["planDigest"] is not None:
-        text(value["planDigest"], SHA256, "plan digest", 64)
-    if value["targetRepository"] is not None:
-        text(value["targetRepository"], REPOSITORY, "target repository", 200)
-    phases = {"plan", "authorize", "repair", "validate", "publish", "readback", "rollback"}
-    enumeration(value["phase"], phases, "phase")
-    for reference in unique_strings(value["evidenceRefs"], 0, 20):
-        text(reference, REFERENCE, "error evidence", 320)
-    boolean(value["terminal"], True)
-    boolean(value["secretMaterialIncluded"], False)
-    record = load_error_catalog().get(value["code"])
-    if record is None:
-        raise ContractError("error code has no canonical record")
-    if any(value[field] != record[field] for field in ("errorRef", "errorClass", "retryable")):
-        raise ContractError("error envelope differs from canonical record")
-    reject_sensitive(value)
-    return value
-
-
 def validate_document(value: Any) -> None:
     if not isinstance(value, dict):
         raise ContractError("document must be an object")
@@ -410,7 +346,8 @@ def validate_document(value: Any) -> None:
         "wellmanifest.skill-terminal-receipt/v1": validate_receipt,
         "wellmanifest.skill-execution-error/v1": validate_error,
     }
-    validator = validators.get(value.get("schema"))
+    schema_name = value.get("schema")
+    validator = validators.get(schema_name) if isinstance(schema_name, str) else None
     if validator is None:
         raise ContractError("unknown document schema")
     validator(value)
@@ -418,7 +355,11 @@ def validate_document(value: Any) -> None:
 
 def integrity() -> None:
     schema = _pr.load_strict_json(SCHEMA_PATH)
-    if schema.get("$id") != SCHEMA_URI or not isinstance(schema.get("$defs"), dict):
+    if (
+        not isinstance(schema, dict)
+        or schema.get("$id") != SCHEMA_URI
+        or not isinstance(schema.get("$defs"), dict)
+    ):
         raise ContractError("execution schema integrity failure")
     _pr.assert_closed_schema(schema)
     load_error_catalog()
