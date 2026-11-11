@@ -58,7 +58,9 @@ EXECUTORS = {
 class Contracts:
     def __init__(self) -> None:
         self.schema = _pr.load_strict_json(SCHEMA_PATH)
-        self.grammar = GRAMMAR_PATH.read_text("utf-8")
+        self.grammar = _pr.read_regular_utf8(GRAMMAR_PATH)
+        if not isinstance(self.schema, dict) or not isinstance(self.schema.get("$defs"), dict):
+            raise ContractError("schema definitions missing")
         defs = self.schema["$defs"]
         names = (
             "identifier", "skillId", "semver", "sha256", "commit",
@@ -67,6 +69,8 @@ class Contracts:
         self.patterns = {name: re.compile(defs[name]["pattern"]) for name in names}
 
     def ref(self, name: str, value: Any) -> str:
+        if name == "repository":
+            return _pr.validate_safe_repository(value, self.patterns["repository"], "repository")
         if not isinstance(value, str) or self.patterns[name].fullmatch(value) is None:
             raise ContractError(f"invalid {name}")
         return value
@@ -76,7 +80,13 @@ class Contracts:
             raise ContractError("schema dialect mismatch")
         if self.schema.get("$id") != SCHEMA_URI:
             raise ContractError("schema identity mismatch")
-        variants = {entry.get("$ref") for entry in self.schema.get("oneOf", [])}
+        one_of = self.schema.get("oneOf")
+        if not isinstance(one_of, list) or any(
+            not isinstance(entry, dict) or not isinstance(entry.get("$ref"), str)
+            for entry in one_of
+        ):
+            raise ContractError("document variants incomplete")
+        variants = {entry["$ref"] for entry in one_of}
         expected_variants = {
             "#/$defs/definition", "#/$defs/catalog",
             "#/$defs/selectionRequest", "#/$defs/selectionProposal",
@@ -188,7 +198,7 @@ def validate_definition(c: Contracts, value: Any) -> None:
         raise ContractError("non-mutating skill declares changed files")
 
     agents = value["agents"]
-    if not isinstance(agents, dict) or not agents:
+    if not isinstance(agents, dict) or not agents or any(not isinstance(k, str) for k in agents):
         raise ContractError("agent phase contract missing")
     if set(agents) - {"doctor-agent", "repair-agent", "validator-agent", "skills-agent"}:
         raise ContractError("unknown agent phase")
@@ -312,7 +322,8 @@ def validate_document(c: Contracts, value: Any) -> None:
         "wellmanifest.skill-selection-request/v1": validate_selection_request,
         "wellmanifest.skill-selection-proposal/v1": validate_selection_proposal,
     }
-    validator = validators.get(value.get("schema"))
+    schema_name = value.get("schema")
+    validator = validators.get(schema_name) if isinstance(schema_name, str) else None
     if validator is None:
         raise ContractError("unknown document schema")
     validator(c, value)

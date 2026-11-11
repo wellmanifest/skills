@@ -23,6 +23,7 @@ try:
         strict_loads,
         unique_strings,
         validate_safe_relative_path,
+        validate_safe_repository,
     )
 except ImportError:
     from skill_primitives import (
@@ -36,6 +37,7 @@ except ImportError:
         strict_loads,
         unique_strings,
         validate_safe_relative_path,
+        validate_safe_repository,
     )
 
 ROOT = Path(__file__).resolve().parent
@@ -71,7 +73,7 @@ def _validate_profile_artifact(
     value: Any, expected_path: str, expected_digest: str
 ) -> None:
     value = exact(value, {"repository", "revision", "path", "sha256"})
-    pattern_text(value["repository"], REPOSITORY, "repository", 200)
+    validate_safe_repository(value["repository"], REPOSITORY, "repository", 200)
     pattern_text(value["revision"], COMMIT, "revision", 40)
     validate_safe_relative_path(value["path"], RELATIVE_PATH, "path", 300)
     pattern_text(value["sha256"], SHA256, "digest", 64)
@@ -161,13 +163,8 @@ def validate_profile(value: Any) -> None:
         "sourceTreeDigest",
         "allowlistDigest",
     }
-    bindings = authority["requiredBindings"]
-    if (
-        not isinstance(bindings, list)
-        or len(bindings) != len(set(bindings))
-        or authority["mode"] != "digest-bound"
-        or set(bindings) != required
-    ):
+    bindings = unique_strings(authority["requiredBindings"], len(required), len(required))
+    if authority["mode"] != "digest-bound" or set(bindings) != required:
         raise ContractError("authority bindings mismatch")
     if (
         authority["singleUse"] is not True
@@ -199,7 +196,7 @@ def validate_profile(value: Any) -> None:
         value["runtimeOwnership"],
         {"executor", "transport", "credentials", "grantVerification"},
     )
-    if set(ownership.values()) != {"runtime-adopter"}:
+    if any(owner != "runtime-adopter" for owner in ownership.values()):
         raise ContractError("runtime responsibility moved into the standard")
     if value["llmAuthority"] != "propose-only" or value["secretMaterialIncluded"] is not False:
         raise ContractError("model or secret boundary mismatch")
@@ -208,7 +205,11 @@ def validate_profile(value: Any) -> None:
 
 def schema_integrity() -> None:
     schema = load_strict_json(SCHEMA_PATH)
-    if schema.get("$id") != SCHEMA_URI or schema.get("additionalProperties") is not False:
+    if (
+        not isinstance(schema, dict)
+        or schema.get("$id") != SCHEMA_URI
+        or schema.get("additionalProperties") is not False
+    ):
         raise ContractError("schema identity or closure mismatch")
     assert_closed_schema(schema)
 

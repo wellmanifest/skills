@@ -1,0 +1,103 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-011",
+  "summary": "Harden skills primitives and modularize execution conformance",
+  "workstream": "integration",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-010/README.md",
+    "project/ticket-011/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "pyproject.toml",
+    "standard/conformance.py",
+    "standard/execution_conformance.py",
+    "standard/execution_errors.py",
+    "standard/operation_profile_conformance.py",
+    "standard/skill_primitives.py",
+    "standard/test_skills_hardening.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "90732467ff6c3ebc8befceb3ff7ec2af30401b3e",
+    "targetBranch": "main",
+    "outcome": "Harden wellmanifest/skills JSON, filesystem, traversal, and unhashable-input boundaries, extract standard/execution_errors.py so execution_conformance.py stays well below 500 lines with zero SSOT duplication, add standard/test_skills_hardening.py, and close merged ticket-010.",
+    "nonGoals": [
+      "No runtime dependency additions",
+      "No breaking changes to skill.schema.json, skill-execution.schema.json, or skill-operation-profile.schema.json"
+    ],
+    "complexity": "M",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 9,
+      "maxAffectedComponents": 3,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Enforce O_NOFOLLOW regular-file UTF-8 reads, MAX_JSON_BYTES/MAX_JSON_DEPTH, NaN/Infinity rejection, iterative tree traversals, string-key/hashable guards, and dot-segment traversal guards in standard/skill_primitives.py; factor error-registry and envelope validation into standard/execution_errors.py while re-exporting symbols from standard/execution_conformance.py.",
+      "components": [
+        {
+          "name": "skills-conformance",
+          "paths": [
+            "pyproject.toml",
+            "standard/conformance.py",
+            "standard/execution_conformance.py",
+            "standard/execution_errors.py",
+            "standard/operation_profile_conformance.py",
+            "standard/skill_primitives.py",
+            "standard/test_skills_hardening.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "pytest -q",
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all",
+          "python3 standard/operation_profile_conformance.py --all"
+        ],
+        "evidence": "project/ticket-011/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "ruff check standard tests"
+        ],
+        "evidence": "project/ticket-011/README.md"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-011/README.md"
+      }
+    ]
+  }
+}

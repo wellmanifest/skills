@@ -3,14 +3,21 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import importlib.util
 import json
+import math
+import os
 import re
+import stat
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+MAX_JSON_BYTES = 4 * 1024 * 1024
+MAX_JSON_DEPTH = 64
 
 EXECUTABLE_OR_SECRET_TEXT = re.compile(
     r"(?:https?://|bearer\s|-----BEGIN|\b(?:ba)?sh\s+-c\b|\bgit\s+(?:merge|push|reset)\b|"
@@ -47,16 +54,93 @@ def _unique_object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _reject_json_constant(_name: str) -> Any:
+    raise ContractError("non-finite JSON number is forbidden")
+
+
+def assert_json_depth(value: Any, max_depth: int = MAX_JSON_DEPTH) -> None:
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        current, depth = stack.pop()
+        if depth > max_depth:
+            raise ContractError("JSON nesting exceeds maximum depth")
+        if isinstance(current, dict):
+            for key, child in current.items():
+                if not isinstance(key, str):
+                    raise ContractError("expected string object keys")
+                stack.append((child, depth + 1))
+        elif isinstance(current, list):
+            for child in current:
+                stack.append((child, depth + 1))
+        elif isinstance(current, float) and not math.isfinite(current):
+            raise ContractError("non-finite JSON number is forbidden")
+
+
 def strict_loads(raw: str) -> Any:
-    return json.loads(raw, object_pairs_hook=_unique_object_pairs)
+    if not isinstance(raw, str):
+        raise ContractError("expected JSON text")
+    if len(raw.encode("utf-8")) > MAX_JSON_BYTES:
+        raise ContractError("JSON input exceeds maximum size")
+    try:
+        parsed = json.loads(
+            raw,
+            object_pairs_hook=_unique_object_pairs,
+            parse_constant=_reject_json_constant,
+        )
+    except (json.JSONDecodeError, RecursionError) as exc:
+        raise ContractError("invalid or excessively nested JSON") from exc
+    assert_json_depth(parsed)
+    return parsed
+
+
+def read_regular_utf8(path: Path, max_bytes: int = MAX_JSON_BYTES) -> str:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        if exc.errno in {errno.ELOOP, errno.ENOTDIR, errno.EISDIR}:
+            raise ContractError("refusing symlink or directory input") from exc
+        raise
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise ContractError("input path must be a regular file")
+        if info.st_size > max_bytes:
+            raise ContractError("input file exceeds maximum size")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise ContractError("input file exceeds maximum size")
+            chunks.append(chunk)
+    finally:
+        os.close(fd)
+    try:
+        return b"".join(chunks).decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ContractError("input file must be valid UTF-8") from exc
 
 
 def load_strict_json(path: Path) -> Any:
-    return strict_loads(path.read_text(encoding="utf-8"))
+    return strict_loads(read_regular_utf8(path))
 
 
 def canonical(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    assert_json_depth(value)
+    try:
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise ContractError("value is not canonicalizable JSON") from exc
 
 
 def sha256_text(value: str) -> str:
@@ -70,10 +154,13 @@ def canonical_digest(value: Any) -> str:
 def exact(value: Any, required: set[str], optional: set[str] | None = None) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ContractError("expected object")
+    if any(not isinstance(key, str) for key in value):
+        raise ContractError("expected string object keys")
     optional_keys = optional or set()
-    if set(value) - required - optional_keys:
+    keys = set(value)
+    if keys - required - optional_keys:
         raise ContractError("undeclared field")
-    if required - set(value):
+    if required - keys:
         raise ContractError("missing field")
     return value
 
@@ -135,6 +222,43 @@ def validate_safe_relative_path(
     return text
 
 
+def validate_safe_organization(
+    value: Any, pattern: re.Pattern[str], label: str = "organization", maximum: int = 100
+) -> str:
+    org = pattern_text(value, pattern, label, maximum)
+    if org in {".", ".."}:
+        raise ContractError(f"invalid {label}")
+    return org
+
+
+def validate_safe_repository(
+    value: Any, pattern: re.Pattern[str], label: str = "repository", maximum: int = 200
+) -> str:
+    repo = pattern_text(value, pattern, label, maximum)
+    parts = repo.split("/")
+    if len(parts) != 2 or any(part in {"", ".", ".."} for part in parts):
+        raise ContractError(f"invalid {label}")
+    return repo
+
+
+def validate_safe_reference(
+    value: Any, pattern: re.Pattern[str], label: str = "reference", maximum: int = 320
+) -> str:
+    ref = pattern_text(value, pattern, label, maximum)
+    _, sep, remainder = ref.partition("://")
+    if (
+        not sep
+        or not remainder
+        or remainder.startswith("/")
+        or remainder.endswith("/")
+        or "//" in remainder
+    ):
+        raise ContractError(f"invalid {label}")
+    if any(segment in {"", ".", ".."} for segment in remainder.split("/")):
+        raise ContractError(f"invalid {label}")
+    return ref
+
+
 def parse_rfc3339_utc(value: Any, label: str = "timestamp") -> datetime:
     if not isinstance(value, str) or RFC3339_TIMESTAMP.fullmatch(value) is None:
         raise ContractError(f"invalid {label}")
@@ -154,42 +278,49 @@ def reject_sensitive_tree(
     check_keys: bool = True,
     _allow_schema_value: bool = False,
 ) -> None:
-    if isinstance(value, dict):
-        for key, child in value.items():
-            if key == "secretMaterialIncluded" and child is False:
-                continue
-            if check_keys:
-                normalized = re.sub(r"[^a-z]", "", key.lower())
-                if any(part in normalized for part in SENSITIVE_KEY_PARTS):
-                    raise ContractError(f"sensitive or executable field is forbidden: {key}")
-            is_allowed_schema = key == "$schema" and child in allowed_schema_uris
-            reject_sensitive_tree(
-                child,
-                allowed_schema_uris=allowed_schema_uris,
-                check_keys=check_keys,
-                _allow_schema_value=is_allowed_schema,
-            )
-    elif isinstance(value, list):
-        for child in value:
-            reject_sensitive_tree(
-                child,
-                allowed_schema_uris=allowed_schema_uris,
-                check_keys=check_keys,
-            )
-    elif isinstance(value, str) and not _allow_schema_value:
-        if EXECUTABLE_OR_SECRET_TEXT.search(value):
-            raise ContractError("document contains executable, remote or secret text")
+    stack: list[tuple[Any, bool, int]] = [(value, _allow_schema_value, 0)]
+    while stack:
+        current, allow_schema, depth = stack.pop()
+        if depth > MAX_JSON_DEPTH:
+            raise ContractError("JSON nesting exceeds maximum depth")
+        if isinstance(current, dict):
+            for key, child in current.items():
+                if not isinstance(key, str):
+                    raise ContractError("expected string object keys")
+                if key == "secretMaterialIncluded" and child is False:
+                    continue
+                if check_keys:
+                    normalized = re.sub(r"[^a-z]", "", key.lower())
+                    if any(part in normalized for part in SENSITIVE_KEY_PARTS):
+                        raise ContractError(f"sensitive or executable field is forbidden: {key}")
+                is_allowed_schema = (
+                    key == "$schema" and isinstance(child, str) and child in allowed_schema_uris
+                )
+                stack.append((child, is_allowed_schema, depth + 1))
+        elif isinstance(current, list):
+            for child in current:
+                stack.append((child, False, depth + 1))
+        elif isinstance(current, str) and not allow_schema:
+            if EXECUTABLE_OR_SECRET_TEXT.search(current):
+                raise ContractError("document contains executable, remote or secret text")
+        elif isinstance(current, float) and not math.isfinite(current):
+            raise ContractError("non-finite JSON number is forbidden")
 
 
 def assert_closed_schema(node: Any) -> None:
-    if isinstance(node, dict):
-        if node.get("type") == "object" and node.get("additionalProperties") is not False:
-            raise ContractError("open object schema")
-        for child in node.values():
-            assert_closed_schema(child)
-    elif isinstance(node, list):
-        for child in node:
-            assert_closed_schema(child)
+    stack: list[tuple[Any, int]] = [(node, 0)]
+    while stack:
+        current, depth = stack.pop()
+        if depth > MAX_JSON_DEPTH:
+            raise ContractError("JSON nesting exceeds maximum depth")
+        if isinstance(current, dict):
+            if current.get("type") == "object" and current.get("additionalProperties") is not False:
+                raise ContractError("open object schema")
+            for child in current.values():
+                stack.append((child, depth + 1))
+        elif isinstance(current, list):
+            for child in current:
+                stack.append((child, depth + 1))
 
 
 def expect_rejected(callback: Callable[[], Any]) -> None:
