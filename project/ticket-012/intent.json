@@ -1,0 +1,95 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-012",
+  "summary": "Harden skills JSON numeric bounds, schema maxLength parity, and closed-schema checks",
+  "workstream": "integration",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-011/README.md",
+    "project/ticket-012/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "standard/conformance.py",
+    "standard/skill_primitives.py",
+    "standard/test_skills_hardening.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "1681c825132b943aa383310fb02d59e2395116e8",
+    "targetBranch": "main",
+    "outcome": "Enforce finite float/integer bounds, reference whitespace/control-char hygiene, and implicit-object closed-schema checks in standard/skill_primitives.py; enforce skill.schema.json maxLength parity in standard/conformance.py; add regression tests in standard/test_skills_hardening.py; and close merged ticket-011.",
+    "nonGoals": [
+      "No runtime dependency additions",
+      "No breaking changes to skill.schema.json, skill-execution.schema.json, or skill-operation-profile.schema.json"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 25,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Add _parse_finite_float and _check_finite_number to standard/skill_primitives.py, tighten validate_safe_reference and assert_closed_schema, and read maxLength bounds from skill.schema.json $defs in standard/conformance.py Contracts.ref.",
+      "components": [
+        {
+          "name": "skills-conformance",
+          "paths": [
+            "standard/conformance.py",
+            "standard/skill_primitives.py",
+            "standard/test_skills_hardening.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "pytest -q",
+          "python3 standard/conformance.py --all",
+          "python3 standard/execution_conformance.py --all",
+          "python3 standard/operation_profile_conformance.py --all"
+        ],
+        "evidence": "project/ticket-012/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "ruff check standard tests"
+        ],
+        "evidence": "project/ticket-012/README.md"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-012/README.md"
+      }
+    ]
+  }
+}

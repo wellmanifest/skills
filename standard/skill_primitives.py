@@ -58,6 +58,22 @@ def _reject_json_constant(_name: str) -> Any:
     raise ContractError("non-finite JSON number is forbidden")
 
 
+def _parse_finite_float(token: str) -> float:
+    parsed = float(token)
+    if not math.isfinite(parsed):
+        raise ContractError("non-finite JSON number is forbidden")
+    return parsed
+
+
+def _check_finite_number(value: int | float) -> None:
+    try:
+        finite = math.isfinite(float(value))
+    except OverflowError as exc:
+        raise ContractError("non-finite JSON number is forbidden") from exc
+    if not finite:
+        raise ContractError("non-finite JSON number is forbidden")
+
+
 def assert_json_depth(value: Any, max_depth: int = MAX_JSON_DEPTH) -> None:
     stack: list[tuple[Any, int]] = [(value, 0)]
     while stack:
@@ -72,8 +88,8 @@ def assert_json_depth(value: Any, max_depth: int = MAX_JSON_DEPTH) -> None:
         elif isinstance(current, list):
             for child in current:
                 stack.append((child, depth + 1))
-        elif isinstance(current, float) and not math.isfinite(current):
-            raise ContractError("non-finite JSON number is forbidden")
+        elif isinstance(current, (int, float)) and not isinstance(current, bool):
+            _check_finite_number(current)
 
 
 def strict_loads(raw: str) -> Any:
@@ -86,6 +102,7 @@ def strict_loads(raw: str) -> Any:
             raw,
             object_pairs_hook=_unique_object_pairs,
             parse_constant=_reject_json_constant,
+            parse_float=_parse_finite_float,
         )
     except (json.JSONDecodeError, RecursionError) as exc:
         raise ContractError("invalid or excessively nested JSON") from exc
@@ -139,7 +156,7 @@ def canonical(value: Any) -> str:
             separators=(",", ":"),
             allow_nan=False,
         )
-    except (TypeError, ValueError, RecursionError) as exc:
+    except (TypeError, ValueError, OverflowError, RecursionError) as exc:
         raise ContractError("value is not canonicalizable JSON") from exc
 
 
@@ -244,6 +261,10 @@ def validate_safe_repository(
 def validate_safe_reference(
     value: Any, pattern: re.Pattern[str], label: str = "reference", maximum: int = 320
 ) -> str:
+    if isinstance(value, str) and any(
+        ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in value
+    ):
+        raise ContractError(f"invalid {label}")
     ref = pattern_text(value, pattern, label, maximum)
     _, sep, remainder = ref.partition("://")
     if (
@@ -308,19 +329,31 @@ def reject_sensitive_tree(
 
 
 def assert_closed_schema(node: Any) -> None:
-    stack: list[tuple[Any, int]] = [(node, 0)]
+    predicate_keys = {"if", "not", "contains", "propertyNames"}
+    overlay_keys = predicate_keys | {"then", "else", "allOf"}
+    stack: list[tuple[Any, int, bool, bool]] = [(node, 0, False, False)]
     while stack:
-        current, depth = stack.pop()
+        current, depth, in_predicate, in_overlay = stack.pop()
         if depth > MAX_JSON_DEPTH:
             raise ContractError("JSON nesting exceeds maximum depth")
         if isinstance(current, dict):
-            if current.get("type") == "object" and current.get("additionalProperties") is not False:
+            is_explicit_obj = current.get("type") == "object"
+            is_implicit_obj = not in_overlay and (
+                "properties" in current or "patternProperties" in current
+            )
+            if (
+                not in_predicate
+                and (is_explicit_obj or is_implicit_obj)
+                and current.get("additionalProperties") is not False
+            ):
                 raise ContractError("open object schema")
-            for child in current.values():
-                stack.append((child, depth + 1))
+            for key, child in current.items():
+                child_pred = in_predicate or key in predicate_keys
+                child_over = in_overlay or key in overlay_keys
+                stack.append((child, depth + 1, child_pred, child_over))
         elif isinstance(current, list):
             for child in current:
-                stack.append((child, depth + 1))
+                stack.append((child, depth + 1, in_predicate, in_overlay))
 
 
 def expect_rejected(callback: Callable[[], Any]) -> None:

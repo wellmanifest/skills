@@ -125,6 +125,8 @@ class SkillsHardeningTests(unittest.TestCase):
             "grant://subactor/../escape",
             "grant://subactor//double",
             "grant://subactor/trailing/",
+            "grant://subactor/bad space",
+            "grant://subactor/bad\nline",
         ):
             grant = execution_conformance.grant_example(
                 execution_conformance.plan_example("repository:repair")
@@ -132,6 +134,44 @@ class SkillsHardeningTests(unittest.TestCase):
             grant["grantRef"] = bad_ref
             with self.subTest(ref=bad_ref), self.assertRaises(ContractError):
                 execution_conformance.validate_grant(grant)
+
+    def test_numeric_overflow_schema_maxlength_and_closed_schema_predicates(self) -> None:
+        for bad_num in ("1e999", "-1e999", '{"x": 1e999}', f'{{"n": {"9" * 400}}}'):
+            with self.subTest(payload=bad_num), self.assertRaises(ContractError):
+                strict_loads(bad_num)
+
+        with self.assertRaises(ContractError):
+            canonical({"huge": 10**400})
+
+        contracts = conformance.Contracts()
+        bad_def = conformance.definition_example("routine")
+        bad_def["skillId"] = f"skill.{'a' * 160}.repair.v1"
+        with self.assertRaises(ContractError):
+            conformance.validate_definition(contracts, bad_def)
+
+        bad_cat = conformance.catalog_example()
+        bad_cat["catalogId"] = "c" * 161
+        with self.assertRaises(ContractError):
+            conformance.validate_catalog(contracts, bad_cat)
+
+        bad_req = conformance.request_example()
+        bad_req["findings"][0]["diagnosticCode"] = "D" * 81
+        with self.assertRaises(ContractError):
+            conformance.validate_selection_request(contracts, bad_req)
+
+        assert_closed_schema(
+            {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"mode": {"type": "string"}},
+                "if": {"type": "object", "properties": {"mode": {"const": "strict"}}},
+                "then": {"properties": {"mode": {"const": "strict"}}},
+            }
+        )
+        with self.assertRaises(ContractError):
+            assert_closed_schema(
+                {"$defs": {"openDef": {"properties": {"mode": {"type": "string"}}}}}
+            )
 
 
 if __name__ == "__main__":
